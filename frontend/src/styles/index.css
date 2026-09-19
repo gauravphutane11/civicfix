@@ -1,0 +1,44 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root { --bg:#f4f7fb; --surface:#ffffff; --ink:#142033; --muted:#667085; --line:#e5eaf1; --brand:#3b5ccc; --brand-soft:#eef2ff; --teal:#138a72; --amber:#c98500; --red:#d64545; }
+* { box-sizing:border-box; }
+html,body,#root { min-height:100%; }
+body { margin:0; font-family:"Inter","IBM Plex Sans",sans-serif; background:var(--bg); color:var(--ink); -webkit-font-smoothing:antialiased; }
+::selection { background:#dbe4ff; color:#142033; }
+button,input,textarea,select { font:inherit; }
+button:disabled { cursor:not-allowed; }
+.civic-app { min-height:100vh; background:radial-gradient(circle at 90% 0%, rgba(59,92,204,.08), transparent 26rem), var(--bg); }
+.civic-header { position:sticky; top:0; z-index:50; background:rgba(255,255,255,.92); backdrop-filter:blur(14px); border-bottom:1px solid var(--line); }
+.civic-shell { max-width:1320px; margin:0 auto; padding:0 24px; }
+.brand-mark { width:40px; height:40px; border-radius:12px; display:grid; place-items:center; color:#fff; background:linear-gradient(135deg,#4c68d8,#3348a8); box-shadow:0 8px 22px rgba(59,92,204,.22); font-weight:800; }
+.nav-pill { display:inline-flex; align-items:center; gap:8px; border:1px solid transparent; padding:10px 13px; border-radius:10px; color:#536074; transition:.16s ease; }
+.nav-pill:hover { background:#f6f8fc; color:#1f2b3d; }
+.nav-pill.active { color:#263f9c; background:var(--brand-soft); border-color:#dce4ff; }
+.btn-primary { display:inline-flex; align-items:center; justify-content:center; gap:9px; border:none; border-radius:12px; background:var(--brand); color:#fff; padding:12px 16px; font-weight:700; box-shadow:0 8px 20px rgba(59,92,204,.18); transition:.16s ease; }
+.btn-primary:hover { transform:translateY(-1px); filter:brightness(1.02); }
+.btn-secondary { display:inline-flex; align-items:center; justify-content:center; gap:9px; border:1px solid var(--line); border-radius:12px; background:#fff; color:#344054; padding:12px 16px; font-weight:650; }
+.card { background:var(--surface); border:1px solid var(--line); border-radius:18px; box-shadow:0 8px 28px rgba(15,23,42,.04); }
+.card-soft { background:#f9fbfe; border:1px solid #e8edf4; border-radius:16px; }
+.input-ui { width:100%; border:1px solid var(--line); background:#fff; color:var(--ink); border-radius:12px; padding:12px 14px; outline:none; transition:.16s ease; }
+.input-ui:focus { border-color:#aab9ef; box-shadow:0 0 0 4px rgba(59,92,204,.09); }
+.tag { display:inline-flex; align-items:center; gap:6px; border-radius:999px; padding:6px 10px; font-size:12px; font-weight:700; }
+.scroll-clean::-webkit-scrollbar { width:8px; }
+.scroll-clean::-webkit-scrollbar-thumb { background:#d6dce6; border-radius:10px; }
+.grid-fade { background-image:linear-gradient(rgba(59,92,204,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(59,92,204,.035) 1px,transparent 1px); background-size:28px 28px; }
+.leaflet-container { background:#e9eef5 !important; font-family:"Inter","IBM Plex Sans",sans-serif; }
+.leaflet-popup-content-wrapper { background:#fff; color:#142033; border-radius:14px; border:1px solid #dfe5ee; box-shadow:0 12px 28px rgba(15,23,42,.12); }
+.leaflet-popup-tip { background:#fff; }
+.leaflet-popup-content-wrapper, .leaflet-popup-content { margin:0; padding:0; }
+.leaflet-control-zoom a { background:#fff !important; color:#344054 !important; border-color:#e3e8ef !important; }
+.focus-ring:focus-visible { outline:3px solid rgba(59,92,204,.25); outline-offset:3px; }
+.admin-layout { min-height:100vh; background:#f4f7fb; color:#162235; }
+.admin-sidebar { background:#101826; color:#e9eef7; }
+.admin-nav { color:#96a3b8; border-radius:11px; }
+.admin-nav:hover { background:#182236; color:#fff; }
+.admin-nav.active { background:#25365c; color:#fff; }
+.admin-stat { border:1px solid #e2e8f0; background:#fff; border-radius:16px; padding:16px; }
+.table-row:hover { background:#f8faff; }
+.drawer-backdrop { background:rgba(15,23,42,.42); backdrop-filter:blur(2px); }
+@media (max-width:900px){ .desktop-only{display:none;} .civic-shell{padding:0 16px;} }
