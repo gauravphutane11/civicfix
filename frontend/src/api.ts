@@ -6,7 +6,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   if (!(options.body instanceof FormData)) headers.set("Content-Type", "application/json");
 
   const token = localStorage.getItem("civicfix_token");
-  if (token && !path.startsWith("/auth/")) headers.set("Authorization", `Bearer ${token}`);
+  if (token && path !== "/auth/login" && path !== "/auth/register") headers.set("Authorization", `Bearer ${token}`);
 
   const res = await fetch(`${BASE}${path}`, { ...options, headers });
   if (!res.ok) {
