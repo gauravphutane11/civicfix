@@ -8,6 +8,7 @@ from .. import models, schemas
 from ..database import get_db
 from ..config import UPLOAD_DIR
 from ..ai.pipeline import run_triage
+from ..ai.location import extract_location
 from ..ai.image_analysis import analyze_image
 from ..security import get_current_user, require_roles
 
@@ -48,6 +49,25 @@ def create_complaint(
     raw_text = raw_text.strip()
     if len(raw_text) < 8:
         raise HTTPException(400, "Please describe the issue in a bit more detail.")
+
+    # A report must contain either live coordinates or a recognizable place
+    # reference that the CivicFix gazetteer can resolve.
+    if (latitude is None) != (longitude is None):
+        raise HTTPException(
+            400,
+            "Location coordinates must include both latitude and longitude.",
+        )
+
+    if latitude is not None and longitude is not None:
+        if not (-90 <= latitude <= 90 and -180 <= longitude <= 180):
+            raise HTTPException(400, "The supplied location coordinates are invalid.")
+    else:
+        location = extract_location(raw_text)
+        if not location.matched:
+            raise HTTPException(
+                400,
+                "Location is required. Use 'Use my location' or mention a specific landmark, gate, road, junction, or recognizable place in your report.",
+            )
 
     # Identity comes from the authenticated account, never from anonymous form fields.
     complaint = models.Complaint(
@@ -99,6 +119,8 @@ def create_complaint(
         location_matched=triage["location_matched"],
         sla_due_at=sla_record.due_at,
         sla_target_hours=sla_record.target_hours,
+        historical_context=triage.get("historical_context"),
+        ai_explanation=triage.get("ai_explanation"),
     )
 
 

@@ -142,6 +142,8 @@ class ComplaintSubmitResponse(BaseModel):
     location_matched: bool
     sla_due_at: Optional[datetime]
     sla_target_hours: Optional[int]
+    historical_context: Optional[dict] = None
+    ai_explanation: Optional[str] = None
 
 
 class StatusHistoryOut(BaseModel):

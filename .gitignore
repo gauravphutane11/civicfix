@@ -6,3 +6,5 @@ civicfix.db
 backend/uploads/*
 frontend/node_modules/
 frontend/dist/
+/uploads/*
+!/uploads/.gitkeep

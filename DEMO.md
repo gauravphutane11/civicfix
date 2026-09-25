@@ -5,7 +5,7 @@ Open `/report` and submit:
 
 > Large pothole near Gate 2; several bikes are slipping at night.
 
-Optionally attach a photo and allow location.
+Attach a photo and allow device location. Both are required by the current citizen intake flow.
 
 ## 02 — AI triage receipt
 Show:
@@ -15,6 +15,8 @@ Show:
 - duplicate intelligence
 - 100-point priority receipt
 - SLA window
+- AI explanation and transparent priority factors
+- historical category context from the bundled NYC 311 reference sample
 
 ## 03 — Operations console
 Open `/admin`.
