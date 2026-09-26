@@ -92,14 +92,37 @@ def create_complaint(
     image.file.seek(0)
 
     saved_path = _save_upload(image)
-    analysis = analyze_image(saved_path, complaint.category or "other")
+    analysis = analyze_image(
+        saved_path,
+        complaint.category or "other",
+    )
+
+    if not analysis.relevant:
+        try:
+            Path(saved_path).unlink(missing_ok=True)
+        finally:
+            db.rollback()
+
+        raise HTTPException(
+            422,
+            analysis.rejection_reason
+            or "Please upload a clear photo of the civic problem.",
+        )
+
     attachment = models.Attachment(
         complaint_id=complaint.id,
         file_path=saved_path,
         content_type=image.content_type,
         ai_tags=analysis.tags,
         ai_confidence=analysis.supporting_confidence,
-        ai_notes=f"brightness={analysis.brightness}, edge_density={analysis.edge_density}, color_variance={analysis.color_variance}",
+        ai_notes=(
+            f"brightness={analysis.brightness}, "
+            f"edge_density={analysis.edge_density}, "
+            f"color_variance={analysis.color_variance}, "
+            f"document_score={analysis.document_score}, "
+            f"face_dominance={analysis.face_dominance}, "
+            f"civic_relevance={analysis.civic_relevance}"
+        ),
     )
     db.add(attachment)
     db.flush()

@@ -38,6 +38,27 @@ class LoginRequest(BaseModel):
     password: str
 
 
+class CitizenOtpRequest(BaseModel):
+    phone: str
+    name: Optional[str] = None
+    email: Optional[str] = None
+    language: Optional[str] = None
+
+
+class CitizenOtpVerifyRequest(BaseModel):
+    phone: str
+    otp: str
+
+
+class CitizenOtpRequestResponse(BaseModel):
+    message: str
+    expires_in_seconds: int
+    retry_after_seconds: int
+    demo_otp: Optional[str] = None
+    is_new_user: bool
+    delivery_mode: str = "demo"
+
+
 class UserOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int

@@ -9,7 +9,7 @@ Citizen report → AI classification → location extraction → duplicate detec
 ## AI modules
 
 1. **Complaint classification:** TF-IDF + Multinomial Naive Bayes over a compact hand-labelled corpus.
-2. **Location extraction:** token-aware phrase extraction + exact/fuzzy alias matching against a curated Pune-style gazetteer.
+2. **Location extraction:** regex phrase extraction + fuzzy alias matching against a curated Pune-style gazetteer.
 3. **Duplicate detection:** domain synonym normalization + TF-IDF cosine similarity + spatial proximity weighting.
 4. **Explainable priority:** transparent 100-point additive model using severity, recurrence, location importance, age and public impact.
 5. **Image evidence:** deterministic Pillow-based brightness/edge/colour statistics. This is explicitly heuristic support, not a trained CNN.
@@ -53,7 +53,7 @@ The Vite proxy forwards `/api/*` to the FastAPI server and `/uploads/*` to FastA
 ## Main routes
 
 - `/` — public CivicFix landing / explanation
-- `/report` — citizen complaint intake + AI triage receipt (photo + location required)
+- `/report` — citizen complaint intake + AI triage receipt
 - `/track` — complaint tracking
 - `/admin` — municipal operations console
 
@@ -75,17 +75,14 @@ Copy `.env.example` to `.env` if you want custom settings. SQLite is the default
 
 - The system is a decision-support prototype, not an autonomous municipal decision-maker.
 - Duplicate detection is probabilistic and should be reviewed by staff.
-- Location is required at submission time; production deployments should still validate coordinate quality and user consent.
-- Location text can be unresolved when a recognizable place cannot be matched; the UI surfaces that uncertainty.
+- Location data can be unresolved; the UI surfaces that uncertainty.
 - Priority factors are transparent and editable in code.
 - Image analysis is intentionally labelled as heuristic supporting evidence rather than object detection.
-- Input validation is explicit: reports require authenticated access, a clear image, and location evidence.
+- The project does not silently reject citizen reports.
 
 ## Data
 
-The prototype includes a 50,000-record historical reference sample derived from the public **NYC 311 Service Requests** dataset for category-level context. The bundled summary is limited to the 2019 sample used by this prototype and is not presented as live Pune data.
-
-The map itself uses public OpenStreetMap tiles and the complaint location model uses a curated Pune-style gazetteer for deterministic demo mapping. Replace the demo gazetteer and historical reference with verified municipal datasets before real-world deployment.
+The demo uses synthetic/curated campus-style data and public-map tiles. Replace the seed/gazetteer with verified municipal datasets before real-world deployment.
 
 ## Validation performed in this handoff
 
@@ -95,7 +92,7 @@ The map itself uses public OpenStreetMap tiles and the complaint location model 
 - Seeded flagship Gate 2 pothole cluster produced one civic issue with 3 reports.
 - Related Gate 2 drainage reports were also consolidated into one issue after tightening location extraction.
 - FastAPI `/health`, `/dashboard/metrics`, `/dashboard/map`, and complaint submission were exercised with a local TestClient.
-- Frontend TypeScript compilation passed in this handoff. If the existing local `node_modules` cache is incomplete, run `npm install` before `npm run dev` or `npm run build`.
+- Frontend dependency installation was attempted, but package download timed out in this sandbox. Run `npm install` on a machine with network access before `npm run dev`.
 
 ## Authentication
 

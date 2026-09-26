@@ -1,14 +1,288 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+
 import PageFrame from "../components/common/PageFrame";
 import { api } from "../api";
+import { useLanguage } from "../i18n";
 import type { Complaint } from "../types";
 
-function statusStyle(status:string){if(status==="resolved")return "bg-emerald-50 text-emerald-700";if(status==="merged")return "bg-violet-50 text-violet-700";return "bg-amber-50 text-amber-700";}
-export default function MyComplaints(){
- const [items,setItems]=useState<Complaint[]>([]); const [loading,setLoading]=useState(true); const [error,setError]=useState(""); const [q,setQ]=useState("");
- useEffect(()=>{api.getMyComplaints().then(setItems).catch(e=>setError(e instanceof Error?e.message:"Unable to load complaints")).finally(()=>setLoading(false))},[]);
- const filtered=useMemo(()=>items.filter(c=>!q||c.complaint_code.toLowerCase().includes(q.toLowerCase())||c.raw_text.toLowerCase().includes(q.toLowerCase())||(c.location_text_raw??"").toLowerCase().includes(q.toLowerCase())),[items,q]);
- const resolved=items.filter(x=>x.status==="resolved").length;
- return <PageFrame><section className="civic-shell py-10 md:py-14"><div className="max-w-[1120px] mx-auto"><div className="flex flex-wrap items-end justify-between gap-5"><div><div className="text-xs uppercase tracking-[.18em] text-indigo-600 font-bold">Your civic desk</div><h1 className="font-display text-5xl font-extrabold tracking-[-.05em] mt-2">My complaints</h1><p className="text-slate-500 mt-3">Every report you submit, in one place.</p></div><Link to="/report" className="btn-primary">Report another issue →</Link></div><div className="grid sm:grid-cols-3 gap-3 mt-8"><div className="card p-5"><div className="text-xs uppercase tracking-widest text-slate-400">Total reports</div><div className="font-display text-4xl font-extrabold mt-2">{items.length}</div></div><div className="card p-5"><div className="text-xs uppercase tracking-widest text-slate-400">Resolved</div><div className="font-display text-4xl font-extrabold mt-2 text-emerald-600">{resolved}</div></div><div className="card p-5"><div className="text-xs uppercase tracking-widest text-slate-400">Active</div><div className="font-display text-4xl font-extrabold mt-2 text-indigo-600">{items.length-resolved}</div></div></div><div className="card p-5 mt-6"><input className="input-ui" value={q} onChange={e=>setQ(e.target.value)} placeholder="Search your complaint ID, description or location…"/></div>{error&&<div className="mt-4 rounded-xl bg-red-50 border border-red-100 text-red-700 p-3">{error}</div>}{loading?<div className="card mt-5 p-10 text-center text-slate-400">Loading your civic history…</div>:<div className="space-y-3 mt-5">{filtered.map(c=><Link key={c.id} to={`/track/${c.complaint_code}`} className="card block p-5 md:p-6 hover:-translate-y-[1px] transition"><div className="flex flex-wrap items-start justify-between gap-4"><div><div className="flex items-center gap-2"><span className="font-mono text-sm font-bold">{c.complaint_code}</span><span className={`tag ${statusStyle(c.status)}`}>{c.status.replaceAll("_"," ")}</span></div><div className="font-display text-xl font-bold mt-3">{c.raw_text}</div><div className="text-sm text-slate-500 mt-2">{c.location_text_raw??"Location not resolved"}</div></div><div className="text-right"><div className="text-xs uppercase tracking-widest text-slate-400">Submitted</div><div className="text-sm font-semibold mt-1">{new Date(c.created_at).toLocaleDateString()}</div></div></div><div className="flex flex-wrap items-center gap-5 mt-5 pt-4 border-t border-slate-100 text-xs text-slate-500"><span>Category: <strong className="text-slate-700 capitalize">{c.category?.replaceAll("_"," ")??"Pending"}</strong></span><span>Evidence: <strong className="text-slate-700">{c.attachments?.length??0} photo</strong></span><span className="ml-auto text-indigo-700 font-semibold">Open case →</span></div></Link>)}{!filtered.length&&<div className="card p-10 text-center"><div className="font-display text-2xl font-bold">No reports found</div><p className="text-slate-500 mt-2">Try another search or submit your first civic issue.</p><Link to="/report" className="btn-primary mt-5">Report an issue</Link></div>}</div>}</div></section></PageFrame>
+function statusStyle(status: string) {
+  if (status === "resolved") return "status-green";
+  if (status === "rejected") return "status-red";
+  return status === "in_progress"
+    ? "status-blue"
+    : "status-amber";
+}
+
+export default function MyComplaints() {
+  const { t, categoryLabel, statusLabel } = useLanguage();
+
+  const [items, setItems] = useState<Complaint[]>([]);
+  const [query, setQuery] = useState("");
+  const [filter, setFilter] = useState("all");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    api
+      .getMyComplaints()
+      .then(setItems)
+      .catch((err) =>
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Unable to load complaints",
+        ),
+      )
+      .finally(() => setLoading(false));
+  }, []);
+
+  const filtered = useMemo(
+    () =>
+      items.filter((item) => {
+        const matchFilter =
+          filter === "all" ||
+          (filter === "active"
+            ? item.status !== "resolved" &&
+              item.status !== "rejected"
+            : item.status === filter);
+
+        const q = query
+          .toLowerCase()
+          .trim();
+
+        const matchQuery =
+          !q ||
+          item.complaint_code
+            .toLowerCase()
+            .includes(q) ||
+          item.raw_text
+            .toLowerCase()
+            .includes(q) ||
+          (item.location_text_raw ?? "")
+            .toLowerCase()
+            .includes(q);
+
+        return matchFilter && matchQuery;
+      }),
+    [items, filter, query],
+  );
+
+  const active = items.filter(
+    (item) =>
+      item.status !== "resolved" &&
+      item.status !== "rejected",
+  ).length;
+
+  const resolved = items.filter(
+    (item) => item.status === "resolved",
+  ).length;
+
+  return (
+    <PageFrame>
+      <section className="citizen-shell citizen-page-section">
+        <div className="page-heading-row">
+          <div>
+            <div className="section-kicker">
+              {t("complaints.kicker")}
+            </div>
+
+            <h1>
+              {t("complaints.title")}
+            </h1>
+
+            <p>
+              {t("complaints.subtitle")}
+            </p>
+          </div>
+
+          <Link
+            to="/report"
+            className="citizen-primary-btn"
+          >
+            {t("complaints.another")} →
+          </Link>
+        </div>
+
+        <div className="citizen-stats">
+          <div>
+            <span>
+              {t("complaints.total")}
+            </span>
+            <strong>{items.length}</strong>
+          </div>
+          <div>
+            <span>
+              {t("complaints.active")}
+            </span>
+            <strong className="text-brand">
+              {active}
+            </strong>
+          </div>
+          <div>
+            <span>
+              {t("complaints.resolved")}
+            </span>
+            <strong className="text-green">
+              {resolved}
+            </strong>
+          </div>
+        </div>
+
+        <div className="complaint-toolbar">
+          <input
+            className="input-ui"
+            value={query}
+            onChange={(event) =>
+              setQuery(event.target.value)
+            }
+            placeholder={t(
+              "complaints.search",
+            )}
+          />
+
+          <div className="filter-tabs">
+            <button
+              type="button"
+              className={
+                filter === "all"
+                  ? "active"
+                  : ""
+              }
+              onClick={() =>
+                setFilter("all")
+              }
+            >
+              {t("complaints.all")}
+            </button>
+
+            <button
+              type="button"
+              className={
+                filter === "active"
+                  ? "active"
+                  : ""
+              }
+              onClick={() =>
+                setFilter("active")
+              }
+            >
+              {t("complaints.activeTab")}
+            </button>
+
+            <button
+              type="button"
+              className={
+                filter === "resolved"
+                  ? "active"
+                  : ""
+              }
+              onClick={() =>
+                setFilter("resolved")
+              }
+            >
+              {t("complaints.resolvedTab")}
+            </button>
+          </div>
+        </div>
+
+        {error && (
+          <div className="citizen-alert">
+            {error}
+          </div>
+        )}
+
+        {loading ? (
+          <div className="citizen-loading">
+            {t("complaints.loading")}
+          </div>
+        ) : filtered.length ? (
+          <div className="complaint-list">
+            {filtered.map((complaint) => (
+              <Link
+                key={complaint.id}
+                to={`/track/${complaint.complaint_code}`}
+                className="complaint-row"
+              >
+                <div className="complaint-code">
+                  {complaint.complaint_code}
+                </div>
+
+                <div className="complaint-content">
+                  <div className="complaint-title-row">
+                    <h2>
+                      {complaint.raw_text}
+                    </h2>
+
+                    <span
+                      className={`status-pill ${statusStyle(
+                        complaint.status,
+                      )}`}
+                    >
+                      {statusLabel(
+                        complaint.status,
+                      )}
+                    </span>
+                  </div>
+
+                  <div className="complaint-meta">
+                    <span>
+                      {categoryLabel(
+                        complaint.category,
+                      ) ||
+                        t("complaints.pending")}
+                    </span>
+
+                    <span>
+                      {complaint.location_text_raw ??
+                        t(
+                          "complaints.locationRecorded",
+                        )}
+                    </span>
+
+                    <span>
+                      {new Date(
+                        complaint.created_at,
+                      ).toLocaleDateString()}
+                    </span>
+                  </div>
+
+                  <div className="complaint-bottom">
+                    <span>
+                      {complaint.attachments?.length ?? 0} {t("complaints.photos")}
+                    </span>
+
+                    <strong>
+                      {t("complaints.open")} →
+                    </strong>
+                  </div>
+                </div>
+              </Link>
+            ))}
+          </div>
+        ) : (
+          <div className="empty-state">
+            <div className="empty-icon">
+              ✓
+            </div>
+
+            <h2>
+              {t("complaints.none")}
+            </h2>
+
+            <p>
+              {t("complaints.first")}
+            </p>
+
+            <Link
+              to="/report"
+              className="citizen-primary-btn"
+            >
+              {t("complaints.another")} →
+            </Link>
+          </div>
+        )}
+      </section>
+    </PageFrame>
+  );
 }

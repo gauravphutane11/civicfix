@@ -1,57 +1,252 @@
 import type { ReactNode } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../../auth";
+import { LanguageSelect, useLanguage } from "../../i18n";
 
-function Icon({name}:{name:"report"|"list"|"ops"|"arrow"|"user"|"logout"}){
- const paths={
-  report:<><path d="M12 5v14M5 12h14"/><rect x="4" y="4" width="16" height="16" rx="4"/></>,
-  list:<><path d="M6 7h12M6 12h12M6 17h8"/></>,
-  ops:<><rect x="4" y="5" width="16" height="14" rx="3"/><path d="M8 9h8M8 13h3M15 13h1M8 17h8"/></>,
-  arrow:<path d="M5 12h14M13 6l6 6-6 6"/>,
-  user:<><circle cx="12" cy="8" r="3"/><path d="M5 20c.8-3.2 3.1-5 7-5s6.2 1.8 7 5"/></>,
-  logout:<><path d="M10 6H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h4"/><path d="M13 8l4 4-4 4M17 12H8"/></>
- };
- return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">{paths[name]}</svg>;
+function Icon({
+  name,
+}: {
+  name: "report" | "list" | "home" | "user" | "logout";
+}) {
+  const paths = {
+    report: (
+      <>
+        <path d="M12 5v14M5 12h14" />
+        <rect x="4" y="4" width="16" height="16" rx="4" />
+      </>
+    ),
+    list: (
+      <>
+        <path d="M6 7h12M6 12h12M6 17h8" />
+      </>
+    ),
+    home: (
+      <>
+        <path d="m4 11 8-7 8 7" />
+        <path d="M6 10v9h12v-9" />
+        <path d="M10 19v-5h4v5" />
+      </>
+    ),
+    user: (
+      <>
+        <circle cx="12" cy="8" r="3" />
+        <path d="M5 20c.8-3.2 3.1-5 7-5s6.2 1.8 7 5" />
+      </>
+    ),
+    logout: (
+      <>
+        <path d="M10 6H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h4" />
+        <path d="M13 8l4 4-4 4M17 12H8" />
+      </>
+    ),
+  };
+
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="w-4 h-4"
+      aria-hidden="true"
+    >
+      {paths[name]}
+    </svg>
+  );
 }
 
-export default function PageFrame({children}:{children:ReactNode}){
- const { user, logout } = useAuth();
- const nav = useNavigate();
- const location = useLocation();
- const citizen = user?.role === "citizen";
- const admin = user?.role === "admin";
- const is = (path:string)=>location.pathname===path || location.pathname.startsWith(path+"/");
- return <div className="civic-app min-h-screen">
-   <header className="civic-header">
-     <div className="civic-shell h-[74px] flex items-center justify-between gap-6">
-       <Link to="/" className="flex items-center gap-3 shrink-0">
-         <div className="brand-mark">CF</div>
-         <div>
-           <div className="font-display font-extrabold tracking-tight text-[18px]">CivicFix</div>
-           <div className="text-[11px] text-slate-500">Citizen service, made visible.</div>
-         </div>
-       </Link>
-       <nav className="hidden md:flex items-center gap-1">
-         {citizen && <>
-           <Link to="/report" className={`nav-pill ${is("/report")?"active":""}`}><Icon name="report"/> Report issue</Link>
-           <Link to="/complaints" className={`nav-pill ${is("/complaints")||is("/track")?"active":""}`}><Icon name="list"/> My complaints</Link>
-         </>}
-         {admin && <Link to="/admin" className={`nav-pill ${is("/admin")?"active":""}`}><Icon name="ops"/> Operations console</Link>}
-       </nav>
-       <div className="flex items-center gap-2">
-         {user ? <>
-           <div className="hidden sm:flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-50 border border-slate-100 max-w-[200px]">
-             <span className="w-7 h-7 rounded-full bg-indigo-100 text-indigo-700 grid place-items-center text-xs font-bold">{user.name.slice(0,1).toUpperCase()}</span>
-             <div className="min-w-0"><div className="text-sm font-semibold truncate">{user.name}</div><div className="text-[10px] uppercase tracking-wider text-slate-400">{admin?"Administrator":"Citizen"}</div></div>
-           </div>
-           <button type="button" className="btn-secondary !px-3 !py-2" onClick={()=>{logout();nav("/",{replace:true});}} title="Sign out"><Icon name="logout"/><span className="hidden sm:inline">Sign out</span></button>
-         </> : <>
-           <Link to="/login" className="btn-secondary !px-4 !py-2.5">Sign in</Link>
-           <Link to="/register" className="btn-primary !px-4 !py-2.5">Create account <Icon name="arrow"/></Link>
-         </>}
-       </div>
-     </div>
-   </header>
-   <main>{children}</main>
- </div>
+export default function PageFrame({
+  children,
+}: {
+  children: ReactNode;
+}) {
+  const { user, logout } = useAuth();
+  const { t } = useLanguage();
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  const citizen = user?.role === "citizen";
+  const is = (path: string) =>
+    location.pathname === path ||
+    location.pathname.startsWith(`${path}/`);
+
+  const citizenPath = citizen ? "/report" : "/login";
+  const complaintsPath = citizen ? "/complaints" : "/login";
+
+  return (
+    <div className="citizen-app min-h-screen">
+      <div className="citizen-utility">
+        <div className="citizen-shell utility-inner">
+          <div className="utility-message">
+            {t("utility.message")}
+          </div>
+
+          <div className="utility-links">
+            <Link to="/">{t("nav.home")}</Link>
+            <span aria-hidden="true">|</span>
+            <a href="/#how-it-works" onClick={(event) => {
+              if (location.pathname === "/") return;
+              event.preventDefault();
+              navigate("/#how-it-works");
+            }}>{t("nav.help")}</a>
+          </div>
+        </div>
+      </div>
+
+      <header className="citizen-header">
+        <div className="citizen-shell citizen-header-inner">
+          <Link
+            to="/"
+            className="citizen-brand"
+          >
+            <div className="citizen-brand-mark">CF</div>
+            <div>
+              <div className="citizen-brand-name">
+                CivicFix
+              </div>
+              <div className="citizen-brand-sub">
+                {t("utility.message")}
+              </div>
+            </div>
+          </Link>
+
+          <nav className="citizen-nav hidden lg:flex">
+            <Link
+              className={is("/") ? "active" : ""}
+              to="/"
+            >
+              <Icon name="home" />
+              {t("nav.home")}
+            </Link>
+
+            <Link
+              className={is("/report") ? "active" : ""}
+              to={citizenPath}
+            >
+              <Icon name="report" />
+              {t("nav.report")}
+            </Link>
+
+            <Link
+              className={is("/track") ? "active" : ""}
+              to={citizenPath}
+            >
+              <Icon name="list" />
+              {t("nav.track")}
+            </Link>
+
+            <Link
+              className={is("/complaints") ? "active" : ""}
+              to={complaintsPath}
+            >
+              {t("nav.complaints")}
+            </Link>
+          </nav>
+
+          <div className="citizen-actions">
+            <LanguageSelect />
+
+            {user ? (
+              <>
+                <div className="citizen-user-pill hidden sm:flex">
+                  <span className="citizen-user-avatar">
+                    {user.name
+                      .slice(0, 1)
+                      .toUpperCase()}
+                  </span>
+                  <span className="max-w-[130px] truncate">
+                    {user.name}
+                  </span>
+                </div>
+
+                <button
+                  type="button"
+                  className="citizen-outline-btn compact"
+                  onClick={() => {
+                    logout();
+                    navigate("/", {
+                      replace: true,
+                    });
+                  }}
+                >
+                  <Icon name="logout" />
+                  <span className="hidden sm:inline">
+                    {t("nav.logout")}
+                  </span>
+                </button>
+              </>
+            ) : (
+              <Link
+                to="/login"
+                className="citizen-login-btn"
+              >
+                <Icon name="user" />
+                {t("nav.login")}
+              </Link>
+            )}
+          </div>
+        </div>
+      </header>
+
+      <div className="citizen-service-nav">
+        <div className="citizen-shell citizen-service-nav-inner">
+          <Link to={citizenPath}>{t("nav.report")}</Link>
+          <Link to={citizenPath}>{t("nav.track")}</Link>
+          <Link to={complaintsPath}>{t("nav.complaints")}</Link>
+          <a href="#help">{t("nav.help")}</a>
+        </div>
+      </div>
+
+      <main>{children}</main>
+
+      <footer
+        className="citizen-footer"
+        id="help"
+      >
+        <div className="citizen-shell footer-grid">
+          <div>
+            <div className="citizen-brand footer-brand">
+              <div className="citizen-brand-mark">CF</div>
+              <div>
+                <div className="citizen-brand-name">
+                  CivicFix
+                </div>
+                <div className="citizen-brand-sub">
+                  {t("utility.message")}
+                </div>
+              </div>
+            </div>
+
+            <p className="footer-copy">
+              {t("footer.disclaimer")}
+            </p>
+          </div>
+
+          <div>
+            <div className="footer-heading">
+              {t("footer.services")}
+            </div>
+            <Link to={citizenPath}>
+              {t("nav.report")}
+            </Link>
+            <Link to={complaintsPath}>
+              {t("nav.complaints")}
+            </Link>
+            <Link to={citizenPath}>
+              {t("nav.track")}
+            </Link>
+          </div>
+
+          <div>
+            <div className="footer-heading">
+              {t("nav.language")}
+            </div>
+            <LanguageSelect />
+          </div>
+        </div>
+      </footer>
+    </div>
+  );
 }

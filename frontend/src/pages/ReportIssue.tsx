@@ -1,9 +1,18 @@
-import { FormEvent, useRef, useState } from "react";
+import {
+  FormEvent,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { useNavigate } from "react-router-dom";
+
 import PageFrame from "../components/common/PageFrame";
-import { api } from "../api";
 import { useAuth } from "../auth";
-import type { ComplaintSubmitResponse } from "../types";
+import { useLanguage, SPEECH_LOCALES } from "../i18n";
+import { api } from "../api";
+import type {
+  ComplaintSubmitResponse,
+} from "../types";
 
 const MAX_IMAGE_SIZE = 8 * 1024 * 1024;
 const ALLOWED_IMAGE_TYPES = [
@@ -12,94 +21,396 @@ const ALLOWED_IMAGE_TYPES = [
   "image/webp",
 ];
 
+type SpeechRecognitionLike = {
+  lang: string;
+  continuous: boolean;
+  interimResults: boolean;
+  onstart: (() => void) | null;
+  onend: (() => void) | null;
+  onerror: ((event: any) => void) | null;
+  onresult: ((event: any) => void) | null;
+  start: () => void;
+  stop: () => void;
+};
+
+type SpeechRecognitionConstructor = new () => SpeechRecognitionLike;
+
+function speechConstructor(): SpeechRecognitionConstructor | null {
+  const browserWindow = window as unknown as {
+    SpeechRecognition?: SpeechRecognitionConstructor;
+    webkitSpeechRecognition?: SpeechRecognitionConstructor;
+  };
+
+  return (
+    browserWindow.SpeechRecognition ??
+    browserWindow.webkitSpeechRecognition ??
+    null
+  );
+}
+
+function factorLabel(
+  key: string,
+  fallback: string,
+  t: (key: string) => string,
+) {
+  const labels: Record<string, string> = {
+    severity: "priority.severity",
+    recurrence: "priority.recurrence",
+    location_importance:
+      "priority.location",
+    age: "priority.age",
+    public_impact:
+      "priority.publicImpact",
+    image_evidence:
+      "priority.imageEvidence",
+  };
+
+  return labels[key]
+    ? t(labels[key])
+    : fallback;
+}
+
 function Step({
-  n,
-  label,
+  number,
+  title,
   active,
 }: {
-  n: string;
-  label: string;
+  number: string;
+  title: string;
   active: boolean;
 }) {
   return (
     <div
-      className={`flex items-center gap-2 ${
-        active ? "text-indigo-700" : "text-slate-400"
+      className={`report-step ${
+        active ? "active" : ""
       }`}
     >
-      <span
-        className={`w-7 h-7 rounded-full grid place-items-center text-xs font-bold ${
-          active ? "bg-indigo-600 text-white" : "bg-slate-100"
-        }`}
-      >
-        {n}
-      </span>
-      <span className="text-sm font-semibold">{label}</span>
+      <span>{number}</span>
+      <strong>{title}</strong>
     </div>
+  );
+}
+
+function Result({
+  result,
+  preview,
+  onReset,
+}: {
+  result: ComplaintSubmitResponse;
+  preview: string;
+  onReset: () => void;
+}) {
+  const navigate = useNavigate();
+  const {
+    t,
+    categoryLabel,
+  } = useLanguage();
+
+  const historical =
+    result.historical_context;
+
+  const category = categoryLabel(
+    result.complaint.category,
+  ) || "—";
+
+  return (
+    <section className="citizen-shell citizen-page-section">
+      <div className="result-banner">
+        <div>
+          <div className="section-kicker">
+            {t("result.received")}
+          </div>
+          <h1>{t("result.title")}</h1>
+          <p>{t("result.keep")}</p>
+        </div>
+
+        <span className="success-badge">
+          {t("result.complete")}
+        </span>
+      </div>
+
+      <div className="result-grid">
+        <div className="citizen-paper-card result-main">
+          <div className="result-id-row">
+            <div>
+              <div className="field-caption">
+                {t("result.complaintId")}
+              </div>
+              <div className="result-id">
+                {result.complaint.complaint_code}
+              </div>
+            </div>
+
+            <div className="priority-pill">
+              {result.priority_band} · {result.priority_score}/100
+            </div>
+          </div>
+
+          <div className="result-quote">
+            {result.complaint.raw_text}
+          </div>
+
+          {preview && (
+            <img
+              src={preview}
+              alt={t("result.photoAlt")}
+              className="result-photo"
+            />
+          )}
+
+          <div className="result-facts">
+            <div>
+              <span>{t("result.issueType")}</span>
+              <strong>{category}</strong>
+              <small>
+                {Math.round(
+                  (result.complaint.category_confidence ?? 0) * 100,
+                )}% {t("result.confidence")}
+              </small>
+            </div>
+
+            <div>
+              <span>{t("result.case")}</span>
+              <strong>{result.civic_issue_code}</strong>
+              <small>
+                {result.duplicate_info.is_duplicate
+                  ? t("result.relatedCase")
+                  : t("result.newCase")}
+              </small>
+            </div>
+
+            <div>
+              <span>{t("result.location")}</span>
+              <strong>
+                {result.complaint.location_text_raw ??
+                  t("result.coordinates")}
+              </strong>
+              <small>
+                {result.location_matched
+                  ? t("result.mapped")
+                  : t("result.recorded")}
+              </small>
+            </div>
+
+            <div>
+              <span>{t("result.service")}</span>
+              <strong>
+                {result.sla_target_hours ?? "—"}h
+              </strong>
+              <small>
+                {t("result.target")}
+              </small>
+            </div>
+          </div>
+
+          <div className="plain-card">
+            <div className="section-kicker">
+              {t("result.ai")}
+            </div>
+            <p>
+              {result.ai_explanation ??
+                t("result.defaultExplanation")}
+            </p>
+          </div>
+        </div>
+
+        <aside className="result-side">
+          <div className="citizen-paper-card service-card">
+            <div className="section-kicker">
+              {t("result.service")}
+            </div>
+            <div className="service-number">
+              {result.sla_target_hours ?? "—"}
+              <span>h</span>
+            </div>
+            <div className="service-muted">
+              {t("result.target")}
+            </div>
+            <div className="service-due">
+              {t("result.due")} {" "}
+              {result.sla_due_at
+                ? new Date(
+                    result.sla_due_at,
+                  ).toLocaleString()
+                : "—"}
+            </div>
+          </div>
+
+          <div className="citizen-paper-card">
+            <div className="section-kicker">
+              {t("result.priority")}
+            </div>
+
+            <div className="factor-list">
+              {result.priority_breakdown.map(
+                (factor) => (
+                  <div key={factor.key}>
+                    <div>
+                      <span>
+                        {factorLabel(
+                          factor.key,
+                          factor.label,
+                          t,
+                        )}
+                      </span>
+                      <strong>
+                        {factor.points}/
+                        {factor.max_points}
+                      </strong>
+                    </div>
+
+                    <div className="factor-track">
+                      <i
+                        style={{
+                          width: `${Math.min(
+                            100,
+                            (factor.points /
+                              factor.max_points) *
+                              100,
+                          )}%`,
+                        }}
+                      />
+                    </div>
+                  </div>
+                ),
+              )}
+            </div>
+          </div>
+
+          {historical && (
+            <div className="citizen-paper-card">
+              <div className="section-kicker">
+                {t("result.history")}
+              </div>
+
+              <strong className="history-big">
+                {historical.category_records.toLocaleString()}
+              </strong>
+
+              <div className="service-muted">
+                {t("result.historyCopy")} {" "}
+                {historical.source_period}.
+              </div>
+
+              <div className="history-share">
+                {historical.category_share_pct}% · {historical.records.toLocaleString()} {t("result.referenceRecords")}
+              </div>
+            </div>
+          )}
+
+          <div className="citizen-paper-card next-card">
+            <div className="section-kicker">
+              {t("result.next")}
+            </div>
+
+            <ol>
+              <li>{t("result.next1")}</li>
+              <li>{t("result.next2")}</li>
+              <li>{t("result.next3")}</li>
+            </ol>
+
+            <div className="result-actions">
+              <button
+                type="button"
+                onClick={() => navigate("/complaints")}
+                className="citizen-primary-btn"
+              >
+                {t("result.view")}
+              </button>
+
+              <button
+                type="button"
+                onClick={onReset}
+                className="citizen-outline-btn"
+              >
+                {t("result.another")}
+              </button>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </section>
   );
 }
 
 export default function ReportIssue() {
   const { user } = useAuth();
-  const navigate = useNavigate();
-  const fileRef = useRef<HTMLInputElement>(null);
+  const {
+    t,
+    language,
+  } = useLanguage();
 
   const [text, setText] = useState("");
-  const [image, setImage] = useState<File | null>(null);
-  const [preview, setPreview] = useState("");
-  const [lat, setLat] = useState<number | undefined>();
-  const [lon, setLon] = useState<number | undefined>();
-  const [locationMessage, setLocationMessage] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-  const [result, setResult] = useState<ComplaintSubmitResponse | null>(null);
+  const [image, setImage] =
+    useState<File | null>(null);
+  const [preview, setPreview] =
+    useState("");
+  const [latitude, setLatitude] =
+    useState<number | undefined>();
+  const [longitude, setLongitude] =
+    useState<number | undefined>();
+  const [locationAccuracy, setLocationAccuracy] =
+    useState<number | null>(null);
 
-  const locationCaptured = lat !== undefined && lon !== undefined;
+  const [listening, setListening] =
+    useState(false);
+  const [voiceError, setVoiceError] =
+    useState("");
 
-  const choose = (file: File | null) => {
-    setError("");
-    setImage(null);
-    setPreview("");
+  const [error, setError] =
+    useState("");
+  const [busy, setBusy] =
+    useState(false);
 
-    if (!file) return;
+  const [result, setResult] =
+    useState<ComplaintSubmitResponse | null>(
+      null,
+    );
 
-    if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
-      setError("Please upload JPG, PNG or WebP.");
-      return;
-    }
+  const recognitionRef =
+    useRef<SpeechRecognitionLike | null>(
+      null,
+    );
 
-    if (file.size > MAX_IMAGE_SIZE) {
-      setError("The image must be 8 MB or smaller.");
-      return;
-    }
+  const locationCaptured =
+    latitude !== undefined &&
+    longitude !== undefined;
 
-    setImage(file);
-    setPreview(URL.createObjectURL(file));
-  };
+  useEffect(() => {
+    return () => {
+      recognitionRef.current?.stop();
+      if (preview) {
+        URL.revokeObjectURL(preview);
+      }
+    };
+  }, [preview]);
 
   const locate = () => {
     setError("");
 
     if (!navigator.geolocation) {
-      setLocationMessage("Location is unavailable in this browser.");
+      setError(
+        t("report.locationUnsupported"),
+      );
       return;
     }
 
-    setLocationMessage("Reading device location…");
-
     navigator.geolocation.getCurrentPosition(
       (position) => {
-        setLat(position.coords.latitude);
-        setLon(position.coords.longitude);
-        setLocationMessage(
-          "Location captured · used for mapping and nearby duplicate detection.",
+        setLatitude(
+          position.coords.latitude,
         );
+        setLongitude(
+          position.coords.longitude,
+        );
+        setLocationAccuracy(
+          position.coords.accuracy,
+        );
+        setError("");
       },
       () => {
-        setLat(undefined);
-        setLon(undefined);
-        setLocationMessage(
-          "Location permission was not granted. Enable location access and try again.",
+        setError(
+          t("report.locationPermission"),
         );
       },
       {
@@ -110,40 +421,204 @@ export default function ReportIssue() {
     );
   };
 
-  const submit = async (event: FormEvent) => {
+  const toggleVoice = () => {
+    setVoiceError("");
+
+    if (listening) {
+      recognitionRef.current?.stop();
+      return;
+    }
+
+    const Constructor =
+      speechConstructor();
+
+    if (!Constructor) {
+      setVoiceError(
+        t("report.voiceUnsupported"),
+      );
+      return;
+    }
+
+    const recognition =
+      new Constructor();
+
+    recognition.lang =
+      SPEECH_LOCALES[language];
+    recognition.continuous = false;
+    recognition.interimResults = false;
+
+    recognition.onstart = () => {
+      setListening(true);
+      setVoiceError("");
+    };
+
+    recognition.onend = () => {
+      setListening(false);
+      recognitionRef.current = null;
+    };
+
+    recognition.onerror = (
+      event,
+    ) => {
+      setListening(false);
+      recognitionRef.current = null;
+
+      if (
+        event?.error !==
+        "aborted"
+      ) {
+        setVoiceError(
+          t("report.voiceFailed"),
+        );
+      }
+    };
+
+    recognition.onresult = (
+      event,
+    ) => {
+      let transcript = "";
+
+      for (
+        let index =
+          event.resultIndex;
+        index <
+        event.results.length;
+        index += 1
+      ) {
+        if (
+          event.results[index]
+            .isFinal
+        ) {
+          transcript +=
+            event.results[index][0]
+              .transcript;
+        }
+      }
+
+      const clean =
+        transcript.trim();
+
+      if (clean) {
+        setText((previous) =>
+          previous.trim()
+            ? `${previous.trim()} ${clean}`
+            : clean,
+        );
+      }
+    };
+
+    recognitionRef.current =
+      recognition;
+    recognition.start();
+  };
+
+  const handleImage = (
+    file: File | undefined,
+  ) => {
+    setError("");
+
+    if (!file) {
+      return;
+    }
+
+    if (
+      !ALLOWED_IMAGE_TYPES.includes(
+        file.type,
+      )
+    ) {
+      setImage(null);
+      setPreview("");
+      setError(
+        t("report.invalidImageType"),
+      );
+      return;
+    }
+
+    if (file.size > MAX_IMAGE_SIZE) {
+      setImage(null);
+      setPreview("");
+      setError(
+        t("report.invalidImageSize"),
+      );
+      return;
+    }
+
+    if (preview) {
+      URL.revokeObjectURL(preview);
+    }
+
+    const nextPreview =
+      URL.createObjectURL(file);
+
+    setImage(file);
+    setPreview(nextPreview);
+  };
+
+  const clearImage = () => {
+    if (preview) {
+      URL.revokeObjectURL(preview);
+    }
+    setPreview("");
+    setImage(null);
+  };
+
+  const submit = async (
+    event: FormEvent,
+  ) => {
     event.preventDefault();
     setError("");
 
     if (text.trim().length < 8) {
-      setError("Please describe the issue in a little more detail.");
+      setError(
+        t("report.descriptionRequired"),
+      );
       return;
     }
 
     if (!image) {
-      setError("A clear photo of the issue is required.");
+      setError(
+        t("report.photoRequired"),
+      );
       return;
     }
 
     if (!locationCaptured) {
-      setError("Your location is required. Use the location button before submitting.");
+      setError(
+        t("report.locationRequired"),
+      );
       return;
     }
 
     setBusy(true);
 
     try {
-      const response = await api.submitComplaint({
-        raw_text: text,
-        latitude: lat,
-        longitude: lon,
-        image,
-      });
+      const response =
+        await api.submitComplaint({
+          raw_text: text.trim(),
+          citizen_name:
+            user?.name,
+          citizen_phone:
+            user?.phone ?? undefined,
+          latitude,
+          longitude,
+          image,
+        });
+
       setResult(response);
     } catch (err) {
-      setError(
+      const message =
         err instanceof Error
           ? err.message
-          : "Unable to submit the report",
+          : "";
+
+      const looksLikeImageRejection = /image|photo|portrait|document|diagram|syllabus|screenshot|civic problem|visual evidence/i.test(
+        message,
+      );
+
+      setError(
+        looksLikeImageRejection
+          ? t("report.invalidImage")
+          : message || t("report.submitFailed"),
       );
     } finally {
       setBusy(false);
@@ -153,446 +628,354 @@ export default function ReportIssue() {
   const reset = () => {
     setResult(null);
     setText("");
-    setImage(null);
-    setPreview("");
-    setLat(undefined);
-    setLon(undefined);
-    setLocationMessage("");
+    clearImage();
     setError("");
+    setVoiceError("");
+    setLatitude(undefined);
+    setLongitude(undefined);
+    setLocationAccuracy(null);
   };
 
   if (result) {
-    const historical = result.historical_context;
-    const categoryLabel =
-      result.complaint.category?.replaceAll("_", " / ") ?? "Unknown";
-
     return (
       <PageFrame>
-        <section className="civic-shell py-10 md:py-14">
-          <div className="max-w-[1080px] mx-auto">
-            <div className="flex flex-wrap items-end justify-between gap-4">
-              <div>
-                <div className="text-xs uppercase tracking-widest text-slate-400">
-                  Report received
-                </div>
-                <h1 className="font-display text-4xl md:text-5xl font-extrabold mt-2">
-                  Your civic case is live.
-                </h1>
-              </div>
-              <span className="tag bg-emerald-50 text-emerald-700">
-                AI triage complete
-              </span>
-            </div>
-
-            <div className="grid lg:grid-cols-[1.15fr_.85fr] gap-6 mt-8">
-              <div className="card p-7">
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <div className="text-xs uppercase tracking-widest text-slate-400">
-                      Complaint ID
-                    </div>
-                    <div className="font-mono text-2xl font-bold mt-1">
-                      {result.complaint.complaint_code}
-                    </div>
-                  </div>
-                  <div className="tag bg-indigo-50 text-indigo-700">
-                    {result.priority_band} · {result.priority_score}/100
-                  </div>
-                </div>
-
-                <p className="text-lg leading-8 text-slate-700 mt-7">
-                  {result.complaint.raw_text}
-                </p>
-
-                {preview && (
-                  <img
-                    src={preview}
-                    alt="Submitted civic evidence"
-                    className="mt-6 w-full h-72 object-cover rounded-xl border border-slate-200"
-                  />
-                )}
-
-                <div className="grid sm:grid-cols-2 gap-4 mt-6">
-                  <div className="card-soft p-4">
-                    <div className="text-xs text-slate-400 uppercase tracking-widest">
-                      AI category
-                    </div>
-                    <div className="font-semibold mt-2 capitalize">
-                      {categoryLabel}
-                    </div>
-                    <div className="text-sm text-slate-500 mt-1">
-                      {Math.round(
-                        (result.complaint.category_confidence ?? 0) * 100,
-                      )}% confidence
-                    </div>
-                  </div>
-
-                  <div className="card-soft p-4">
-                    <div className="text-xs text-slate-400 uppercase tracking-widest">
-                      Civic issue
-                    </div>
-                    <div className="font-mono font-bold mt-2">
-                      {result.civic_issue_code}
-                    </div>
-                    <div className="text-sm text-slate-500 mt-1">
-                      {result.duplicate_info.is_duplicate
-                        ? "Linked to a related existing issue"
-                        : "New civic case"}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="card-soft p-5 mt-6">
-                  <div className="text-xs uppercase tracking-widest text-slate-400">
-                    AI explanation
-                  </div>
-                  <p className="text-sm leading-6 text-slate-600 mt-3">
-                    {result.ai_explanation ??
-                      "The system classified, mapped and prioritized this report using the CivicFix decision pipeline."}
-                  </p>
-                </div>
-
-                <div className="grid sm:grid-cols-2 gap-4 mt-4">
-                  <div className="card-soft p-5">
-                    <div className="text-xs uppercase tracking-widest text-slate-400">
-                      Priority transparency
-                    </div>
-                    <div className="space-y-3 mt-4">
-                      {result.priority_breakdown.map((factor) => (
-                        <div key={factor.key}>
-                          <div className="flex items-center justify-between gap-3 text-xs">
-                            <span className="text-slate-500">
-                              {factor.label}
-                            </span>
-                            <span className="font-mono font-semibold">
-                              {factor.points}/{factor.max_points}
-                            </span>
-                          </div>
-                          <div className="h-1.5 bg-slate-100 rounded-full mt-1 overflow-hidden">
-                            <div
-                              className="h-full rounded-full bg-indigo-500"
-                              style={{
-                                width: `${Math.min(
-                                  100,
-                                  (factor.points / factor.max_points) * 100,
-                                )}%`,
-                              }}
-                            />
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="card-soft p-5">
-                    <div className="text-xs uppercase tracking-widest text-slate-400">
-                      Location evidence
-                    </div>
-                    <div className="font-semibold mt-3">
-                      {result.complaint.location_text_raw ??
-                        "Mapped coordinates"}
-                    </div>
-                    <div className="text-sm text-slate-500 mt-1">
-                      {result.location_matched
-                        ? "Used for civic mapping and duplicate proximity analysis."
-                        : "Location recorded but not confidently resolved."}
-                    </div>
-                    {result.complaint.latitude != null &&
-                      result.complaint.longitude != null && (
-                        <div className="font-mono text-xs text-slate-400 mt-3">
-                          {result.complaint.latitude.toFixed(6)}, {" "}
-                          {result.complaint.longitude.toFixed(6)}
-                        </div>
-                      )}
-                  </div>
-                </div>
-
-                {result.duplicate_info.is_duplicate && (
-                  <div className="card-soft p-5 mt-4">
-                    <div className="text-xs uppercase tracking-widest text-slate-400">
-                      Duplicate detection
-                    </div>
-                    <div className="font-semibold mt-3">
-                      Linked to {result.duplicate_info.matched_complaint_code}
-                    </div>
-                    <div className="text-sm text-slate-500 mt-1">
-                      Combined similarity: {Math.round(
-                        (result.duplicate_info.similarity ?? 0) * 100,
-                      )}%
-                      {result.duplicate_info.shared_terms.length > 0 &&
-                        ` · Shared terms: ${result.duplicate_info.shared_terms.join(", ")}`}
-                    </div>
-                  </div>
-                )}
-
-                {historical && (
-                  <div className="card-soft p-5 mt-4">
-                    <div className="text-xs uppercase tracking-widest text-slate-400">
-                      Historical reference
-                    </div>
-                    <div className="font-semibold mt-3">
-                      {historical.source} · {historical.source_period}
-                    </div>
-                    <div className="text-sm text-slate-500 mt-1">
-                      {historical.records.toLocaleString()} historical records ·{" "}
-                      {historical.category_records.toLocaleString()} in this issue category ·{" "}
-                      {historical.category_share_pct}% of the sample
-                    </div>
-                    {historical.top_descriptors.length > 0 && (
-                      <div className="flex flex-wrap gap-2 mt-3">
-                        {historical.top_descriptors.map((descriptor) => (
-                          <span
-                            key={descriptor}
-                            className="tag bg-white text-slate-600 border border-slate-200"
-                          >
-                            {descriptor}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              <div className="space-y-4">
-                <div className="card p-6">
-                  <div className="text-xs uppercase tracking-widest text-slate-400">
-                    Service clock
-                  </div>
-                  <div className="font-display text-4xl font-extrabold mt-3">
-                    {result.sla_target_hours}h
-                  </div>
-                  <div className="text-sm text-slate-500 mt-1">
-                    target resolution window
-                  </div>
-                  <div className="mt-5 text-sm text-slate-600">
-                    Due {new Date(result.sla_due_at ?? "").toLocaleString()}
-                  </div>
-                </div>
-
-                <div className="card p-6">
-                  <div className="text-xs uppercase tracking-widest text-slate-400">
-                    Next step
-                  </div>
-                  <p className="mt-3 text-slate-600 leading-6">
-                    Your report is connected to <strong>{user?.name}</strong>.
-                    Check My Complaints anytime for the case status and service
-                    clock.
-                  </p>
-                  <div className="flex flex-wrap gap-3 mt-5">
-                    <button
-                      onClick={() => navigate("/complaints")}
-                      className="btn-primary"
-                    >
-                      View my complaints
-                    </button>
-                    <button
-                      onClick={reset}
-                      className="btn-secondary"
-                    >
-                      Report another
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
+        <Result
+          result={result}
+          preview={preview}
+          onReset={reset}
+        />
       </PageFrame>
     );
   }
 
   return (
     <PageFrame>
-      <section className="civic-shell py-10 md:py-14">
-        <div className="max-w-[1080px] mx-auto">
-          <div className="flex flex-wrap items-end justify-between gap-6">
+      <section className="report-page citizen-page-section">
+        <div className="citizen-shell">
+          <div className="report-header">
             <div>
-              <div className="text-xs uppercase tracking-[.18em] text-indigo-600 font-bold">
-                Citizen report
+              <div className="section-kicker">
+                {t("report.kicker")}
               </div>
-              <h1 className="font-display text-5xl md:text-6xl font-extrabold tracking-[-.05em] mt-3">
-                Tell us what needs fixing.
+
+              <h1>
+                {t("report.title")}
               </h1>
-              <p className="text-lg text-slate-500 mt-4 max-w-2xl leading-7">
-                Write what happened, add a photo, share your location and let
-                CivicFix structure the rest.
+
+              <p>
+                {t("report.subtitle")}
               </p>
             </div>
 
-            <div className="hidden sm:flex gap-5">
-              <Step n="1" label="Describe" active />
-              <Step n="2" label="Evidence" active />
-              <Step n="3" label="Triage" active />
+            <div className="report-steps">
+              <Step
+                number="1"
+                title={t(
+                  "report.describe",
+                )}
+                active={text.length > 0}
+              />
+              <Step
+                number="2"
+                title={t("report.photo")}
+                active={Boolean(image)}
+              />
+              <Step
+                number="3"
+                title={t("report.location")}
+                active={locationCaptured}
+              />
             </div>
           </div>
 
+          {error && (
+            <div className="citizen-alert">
+              {error}
+            </div>
+          )}
+
           <form
             onSubmit={submit}
-            className="grid lg:grid-cols-[1fr_380px] gap-6 mt-9"
+            className="report-layout"
           >
-            <div className="card p-7 md:p-8">
-              <label className="block">
-                <span className="text-sm font-bold">What is wrong?</span>
+            <div className="citizen-paper-card report-form-card">
+              <div className="field-block">
+                <label className="field-title">
+                  {t("report.problem")}
+                </label>
+
                 <textarea
                   value={text}
-                  onChange={(event) => setText(event.target.value)}
-                  className="input-ui mt-2 min-h-48 resize-y"
-                  placeholder="Example: Large pothole near Gate 2. Bikes are slipping at night and traffic has to move around it."
-                  required
+                  onChange={(event) =>
+                    setText(
+                      event.target.value,
+                    )
+                  }
+                  className="input-ui report-textarea"
+                  placeholder={t(
+                    "report.placeholder",
+                  )}
+                  minLength={8}
                 />
-              </label>
 
-              <div className="mt-7">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="text-sm font-bold">Photo evidence</div>
-                    <div className="text-xs text-slate-400 mt-1">
-                      Required · JPG, PNG or WebP · up to 8 MB
-                    </div>
-                  </div>
-                  <span className="tag bg-amber-50 text-amber-700">
-                    Required
+                <div className="voice-row">
+                  <button
+                    type="button"
+                    onClick={toggleVoice}
+                    className={`voice-button ${
+                      listening
+                        ? "listening"
+                        : ""
+                    }`}
+                  >
+                    <span className="voice-icon">
+                      {listening
+                        ? "■"
+                        : "●"}
+                    </span>
+                    {listening
+                      ? t(
+                          "report.stopVoice",
+                        )
+                      : t(
+                          "report.voice",
+                        )}
+                  </button>
+
+                  <span className="voice-help">
+                    {t(
+                      "report.voiceHelp",
+                    )}
                   </span>
                 </div>
 
-                <div
-                  onClick={() => fileRef.current?.click()}
-                  className="mt-3 rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50/70 p-5 cursor-pointer hover:border-indigo-200 hover:bg-indigo-50/40 transition"
-                >
-                  {preview ? (
-                    <img
-                      src={preview}
-                      alt="Evidence preview"
-                      className="w-full h-64 object-cover rounded-xl"
-                    />
-                  ) : (
-                    <div className="h-40 grid place-items-center text-center">
-                      <div>
-                        <div className="w-12 h-12 rounded-2xl bg-white border border-slate-200 grid place-items-center mx-auto text-indigo-600 text-xl">
-                          +
-                        </div>
-                        <div className="font-semibold mt-3">
-                          Choose a clear photo
-                        </div>
-                        <div className="text-sm text-slate-400 mt-1">
-                          A real-world image helps verify the report.
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  <input
-                    ref={fileRef}
-                    type="file"
-                    className="hidden"
-                    accept="image/png,image/jpeg,image/webp"
-                    onChange={(event) =>
-                      choose(event.target.files?.[0] ?? null)
-                    }
-                  />
-                </div>
-
-                {image && (
-                  <div className="text-xs text-slate-500 mt-2">
-                    {image.name}
+                {voiceError && (
+                  <div className="field-error">
+                    {voiceError}
                   </div>
                 )}
               </div>
 
-              <div className="mt-7">
-                <div className="flex items-center justify-between gap-4">
-                  <div>
-                    <div className="text-sm font-bold">
-                      Location <span className="text-red-500">Required</span>
-                    </div>
-                    <div className="text-xs text-slate-400 mt-1">
-                      CivicFix uses your coordinates for mapping and nearby duplicate detection.
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={locate}
-                    className="btn-secondary !py-2.5 shrink-0"
-                  >
-                    {locationCaptured ? "Refresh location" : "Use my location"}
-                  </button>
+              <div className="form-divider" />
+
+              <div className="field-block">
+                <div className="field-title">
+                  {t("report.photo")}
                 </div>
 
-                <div
-                  className={`mt-3 rounded-xl border p-3 text-sm ${
+                <p className="field-help">
+                  {t(
+                    "report.photoHelp",
+                  )}
+                </p>
+
+                <div className="photo-upload-row">
+                  <label className="photo-button">
+                    {t(
+                      "report.choosePhoto",
+                    )}
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      onChange={(event) =>
+                        handleImage(
+                          event.target.files?.[0],
+                        )
+                      }
+                    />
+                  </label>
+
+                  {image && (
+                    <button
+                      type="button"
+                      onClick={clearImage}
+                      className="text-link-button"
+                    >
+                      {t("report.clear")}
+                    </button>
+                  )}
+                </div>
+
+                {preview && (
+                  <div className="upload-preview">
+                    <img
+                      src={preview}
+                      alt={t(
+                        "report.photoPreview",
+                      )}
+                    />
+                    <div>
+                      <strong>
+                        {image?.name}
+                      </strong>
+                      <span>
+                        {t(
+                          "report.photoChecking",
+                        )}
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="form-divider" />
+
+              <div className="field-block">
+                <div className="field-title">
+                  {t("report.location")}
+                </div>
+
+                <p className="field-help">
+                  {t(
+                    "report.locationHelp",
+                  )}
+                </p>
+
+                <button
+                  type="button"
+                  onClick={locate}
+                  className={`location-button ${
                     locationCaptured
-                      ? "border-emerald-100 bg-emerald-50 text-emerald-700"
-                      : "border-amber-100 bg-amber-50 text-amber-700"
+                      ? "captured"
+                      : ""
                   }`}
                 >
+                  <span>
+                    {locationCaptured
+                      ? "✓"
+                      : "⌖"}
+                  </span>
                   {locationCaptured
-                    ? `Location captured · ${lat?.toFixed(6)}, ${lon?.toFixed(6)}`
-                    : locationMessage ||
-                      "Location is required before this report can be submitted."}
-                </div>
+                    ? t(
+                        "report.locationCaptured",
+                      )
+                    : t(
+                        "report.useLocation",
+                      )}
+                </button>
+
+                {locationCaptured && (
+                  <div className="location-readout">
+                    <strong>
+                      {t(
+                        "report.locationCaptured",
+                      )}
+                    </strong>
+                    <span>
+                      {latitude?.toFixed(5)}, {" "}
+                      {longitude?.toFixed(5)}
+                    </span>
+                    {locationAccuracy !== null && (
+                      <span>
+                        ±{Math.round(locationAccuracy)}m
+                      </span>
+                    )}
+                  </div>
+                )}
               </div>
 
-              {error && (
-                <div className="mt-6 rounded-xl bg-red-50 border border-red-100 text-red-700 p-3 text-sm">
-                  {error}
-                </div>
-              )}
+              <div className="form-divider" />
 
-              <button
-                disabled={
-                  busy ||
-                  !image ||
-                  !locationCaptured ||
-                  text.trim().length < 8
-                }
-                className="btn-primary w-full mt-7 py-3.5"
-              >
-                {busy ? "Analysing your report…" : "Submit civic report →"}
-              </button>
+              <div className="submit-area">
+                <div>
+                  <strong>
+                    {t("report.before")}
+                  </strong>
+                  <span>
+                    {t("report.clear")}
+                  </span>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={
+                    busy ||
+                    text.trim().length < 8 ||
+                    !image ||
+                    !locationCaptured
+                  }
+                  className="citizen-primary-btn submit-button"
+                >
+                  {busy
+                    ? t(
+                        "report.checking",
+                      )
+                    : t(
+                        "report.submit",
+                      )}
+                </button>
+              </div>
             </div>
 
-            <aside className="space-y-4">
-              <div className="card p-6">
-                <div className="text-xs uppercase tracking-widest text-slate-400">
-                  What CivicFix checks
+            <aside className="report-side">
+              <div className="citizen-paper-card">
+                <div className="section-kicker">
+                  {t("report.checks")}
                 </div>
-                <div className="space-y-4 mt-5">
+
+                <div className="checks-list">
                   <div>
-                    <div className="font-semibold">Issue type</div>
-                    <div className="text-sm text-slate-500 mt-1">
-                      Pothole, waste, streetlight, drainage, road, water and more.
-                    </div>
+                    <strong>
+                      {t("report.issueType")}
+                    </strong>
+                    <span>
+                      {t(
+                        "report.issueTypeCopy",
+                      )}
+                    </span>
                   </div>
+
                   <div>
-                    <div className="font-semibold">Location</div>
-                    <div className="text-sm text-slate-500 mt-1">
-                      Device coordinates or a recognizable landmark are used as spatial evidence.
-                    </div>
+                    <strong>
+                      {t(
+                        "report.locationEvidence",
+                      )}
+                    </strong>
+                    <span>
+                      {t(
+                        "report.locationEvidenceCopy",
+                      )}
+                    </span>
                   </div>
+
                   <div>
-                    <div className="font-semibold">Related reports</div>
-                    <div className="text-sm text-slate-500 mt-1">
-                      Probable duplicates can be consolidated into one case.
-                    </div>
+                    <strong>
+                      {t(
+                        "report.related",
+                      )}
+                    </strong>
+                    <span>
+                      {t(
+                        "report.relatedCopy",
+                      )}
+                    </span>
                   </div>
+
                   <div>
-                    <div className="font-semibold">Priority</div>
-                    <div className="text-sm text-slate-500 mt-1">
-                      The score is explained instead of being a black box.
-                    </div>
+                    <strong>
+                      {t(
+                        "report.priority",
+                      )}
+                    </strong>
+                    <span>
+                      {t(
+                        "report.priorityCopy",
+                      )}
+                    </span>
                   </div>
                 </div>
               </div>
 
-              <div className="card-soft p-5">
-                <div className="text-xs uppercase tracking-widest text-slate-400">
-                  Signed in as
+              <div className="citizen-paper-card report-note-card">
+                <div className="section-kicker">
+                  {t("report.photoRule")}
                 </div>
-                <div className="font-semibold mt-2">{user?.name}</div>
-                <div className="text-sm text-slate-500 mt-1">
-                  {user?.email}
-                </div>
+
+                <p>
+                  {t(
+                    "report.photoRuleCopy",
+                  )}
+                </p>
               </div>
             </aside>
           </form>

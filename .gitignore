@@ -1,103 +1,51 @@
 # =========================================================
-
 # CIVICFIX GITIGNORE
-
 # =========================================================
 
-# ---------------------------------------------------------
-
 # Python
-
-# ---------------------------------------------------------
-
-**pycache**/
+__pycache__/
 *.py[cod]
 .venv/
 venv/
 
-# ---------------------------------------------------------
-
 # Environment / secrets
-
-# ---------------------------------------------------------
-
 .env
 .env.*
 !.env.example
 
-# ---------------------------------------------------------
-
 # Local database
-
-# ---------------------------------------------------------
-
 civicfix.db
 
-# ---------------------------------------------------------
-
-# Backend / runtime uploads
-
-# ---------------------------------------------------------
-
+# Runtime uploads
 backend/uploads/*
 uploads/*
 !/uploads/.gitkeep
 
-# ---------------------------------------------------------
-
-# Frontend / Node
-
-# ---------------------------------------------------------
-
+# Node / frontend
+node_modules/
 frontend/node_modules/
 frontend/dist/
-node_modules/
 
 # TypeScript build cache
-
 frontend/tsconfig.tsbuildinfo
 
-# ---------------------------------------------------------
-
 # Temporary files
-
-# ---------------------------------------------------------
-
 temp.txt
 
-# ---------------------------------------------------------
-
-# Large / raw NYC 311 datasets
-
-# ---------------------------------------------------------
-
+# Large / raw NYC 311 data
 dataset/311-service-requests-from-2010-to-present.csv
 dataset/311-web-content-services.csv
 
 # Dataset reference files
-
 dataset/311_SR_Data_Dictionary_2018.xlsx
-
-# Socrata metadata
-
 dataset/*metadata*.json
 dataset/socrata_metadata_*.json
 
-# ---------------------------------------------------------
-
-# Keep CivicFix processed / demo datasets
-
-# ---------------------------------------------------------
-
+# Keep CivicFix derived/demo datasets
 !dataset/civicfix_nyc311_sample.csv
 !dataset/civicfix_nyc311_mapped.csv
 
-# ---------------------------------------------------------
-
-# OS / editor files
-
-# ---------------------------------------------------------
-
+# Editor / OS
 .DS_Store
 Thumbs.db
 .vscode/

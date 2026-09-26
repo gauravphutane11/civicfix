@@ -129,3 +129,25 @@ def require_roles(*roles: str):
 
     return dependency
 
+
+
+def normalize_phone(phone: str) -> str:
+    digits = "".join(ch for ch in (phone or "") if ch.isdigit())
+    if digits.startswith("91") and len(digits) == 12:
+        digits = digits[2:]
+    if len(digits) != 10 or digits[0] not in "6789":
+        raise ValueError("Enter a valid 10-digit Indian mobile number")
+    return digits
+
+
+def hash_otp(phone: str, otp: str) -> str:
+    return hmac.new(AUTH_SECRET.encode("utf-8"), f"{normalize_phone(phone)}:{otp}".encode("utf-8"), hashlib.sha256).hexdigest()
+
+
+def verify_otp(phone: str, otp: str, encoded: str | None) -> bool:
+    if not encoded:
+        return False
+    try:
+        return hmac.compare_digest(hash_otp(phone, otp.strip()), encoded)
+    except ValueError:
+        return False

@@ -32,6 +32,16 @@ def ensure_auth_schema():
             conn.execute(text("ALTER TABLE users ADD COLUMN email VARCHAR"))
         if "password_hash" not in columns:
             conn.execute(text("ALTER TABLE users ADD COLUMN password_hash VARCHAR"))
+        if "otp_hash" not in columns:
+            conn.execute(text("ALTER TABLE users ADD COLUMN otp_hash VARCHAR"))
+        if "otp_expires_at" not in columns:
+            conn.execute(text("ALTER TABLE users ADD COLUMN otp_expires_at TIMESTAMP"))
+        if "otp_attempts" not in columns:
+            conn.execute(text("ALTER TABLE users ADD COLUMN otp_attempts INTEGER DEFAULT 0"))
+        if "otp_requested_at" not in columns:
+            conn.execute(text("ALTER TABLE users ADD COLUMN otp_requested_at TIMESTAMP"))
+        if "otp_provider" not in columns:
+            conn.execute(text("ALTER TABLE users ADD COLUMN otp_provider VARCHAR"))
 
 
 @app.on_event("startup")

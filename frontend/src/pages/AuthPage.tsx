@@ -1,11 +1,695 @@
-import { FormEvent, useState } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { FormEvent, useEffect, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import PageFrame from "../components/common/PageFrame";
 import { useAuth } from "../auth";
+import { useLanguage } from "../i18n";
 
-export default function AuthPage({mode}:{mode:"login"|"register"}){
- const isRegister=mode==="register"; const {login,register}=useAuth(); const nav=useNavigate(); const location=useLocation();
- const [name,setName]=useState(""); const [email,setEmail]=useState(""); const [phone,setPhone]=useState(""); const [password,setPassword]=useState(""); const [confirm,setConfirm]=useState(""); const [error,setError]=useState(""); const [busy,setBusy]=useState(false);
- const submit=async(e:FormEvent)=>{e.preventDefault();setError("");if(isRegister&&password!==confirm){setError("Passwords do not match.");return;}setBusy(true);try{const user=isRegister?await register({name,email,phone:phone||undefined,password}):await login(email,password);const from=(location.state as {from?:string}|null)?.from;nav(user.role==="admin"?"/admin":(from&&!from.startsWith("/login")&&!from.startsWith("/register")?from:"/report"),{replace:true});}catch(err){setError(err instanceof Error?err.message:"Authentication failed");}finally{setBusy(false)}};
- return <PageFrame><section className="civic-shell py-12 md:py-20"><div className="max-w-[1080px] mx-auto grid lg:grid-cols-[1fr_420px] gap-8 items-stretch"><div className="card p-8 md:p-11 bg-gradient-to-br from-indigo-50 via-white to-emerald-50"><div className="tag bg-white text-indigo-700 border border-indigo-100">Civic account</div><h1 className="font-display text-5xl md:text-6xl font-extrabold tracking-[-.05em] mt-6 leading-[.95]">{isRegister?"A personal civic desk.":"Welcome back."}</h1><p className="mt-6 text-slate-600 text-lg leading-8 max-w-xl">{isRegister?"Create one account to report issues, keep your evidence together and revisit every complaint you have submitted.":"Sign in to see your submitted complaints, active civic cases and the latest accountability trail."}</p><div className="mt-9 grid sm:grid-cols-3 gap-3"><div className="card-soft p-4"><div className="text-xs font-bold text-slate-400">01</div><div className="font-semibold mt-2">Report</div></div><div className="card-soft p-4"><div className="text-xs font-bold text-slate-400">02</div><div className="font-semibold mt-2">Track</div></div><div className="card-soft p-4"><div className="text-xs font-bold text-slate-400">03</div><div className="font-semibold mt-2">Stay informed</div></div></div></div><form onSubmit={submit} className="card p-7 md:p-8"><div className="text-xs uppercase tracking-widest text-slate-400">{isRegister?"Create account":"Sign in"}</div>{isRegister&&<label className="block mt-6"><span className="text-sm font-semibold">Full name</span><input value={name} onChange={e=>setName(e.target.value)} className="input-ui mt-2" required/></label>}<label className="block mt-4"><span className="text-sm font-semibold">Email</span><input type="email" value={email} onChange={e=>setEmail(e.target.value)} className="input-ui mt-2" required/></label>{isRegister&&<label className="block mt-4"><span className="text-sm font-semibold">Phone <span className="font-normal text-slate-400">optional</span></span><input value={phone} onChange={e=>setPhone(e.target.value)} className="input-ui mt-2"/></label>}<label className="block mt-4"><span className="text-sm font-semibold">Password</span><input type="password" value={password} onChange={e=>setPassword(e.target.value)} className="input-ui mt-2" minLength={8} required/></label>{isRegister&&<label className="block mt-4"><span className="text-sm font-semibold">Confirm password</span><input type="password" value={confirm} onChange={e=>setConfirm(e.target.value)} className="input-ui mt-2" required/></label>}{error&&<div className="mt-4 rounded-xl bg-red-50 border border-red-100 text-red-700 text-sm p-3">{error}</div>}<button disabled={busy} className="btn-primary w-full mt-6">{busy?"Please wait…":isRegister?"Create my account":"Sign in"}</button><div className="mt-5 text-center text-sm text-slate-500">{isRegister?<>Already registered? <Link to="/login" className="font-semibold text-indigo-700">Sign in</Link></>:<>New here? <Link to="/register" className="font-semibold text-indigo-700">Create an account</Link></>}</div></form></div></section></PageFrame>
+function normalizePhone(value: string) {
+  return value.replace(/\D/g, "").slice(-10);
+}
+
+export default function AuthPage({
+  mode: _mode,
+}: {
+  mode: "login" | "register";
+}) {
+  const {
+    login,
+    requestCitizenOtp,
+    verifyCitizenOtp,
+  } = useAuth();
+
+  const { t, language } = useLanguage();
+
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  const [portal, setPortal] = useState<
+    "citizen" | "admin"
+  >("citizen");
+
+  const [citizenStep, setCitizenStep] =
+    useState<"details" | "otp">(
+      "details",
+    );
+
+  const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
+  const [otp, setOtp] = useState("");
+  const [demoOtp, setDemoOtp] =
+    useState("");
+  const [deliveryMode, setDeliveryMode] =
+    useState("demo");
+  const [expiresIn, setExpiresIn] =
+    useState(0);
+  const [retryAfter, setRetryAfter] =
+    useState(0);
+
+  const [adminEmail, setAdminEmail] =
+    useState("");
+  const [adminPassword, setAdminPassword] =
+    useState("");
+
+  const [error, setError] =
+    useState("");
+  const [info, setInfo] =
+    useState("");
+  const [busy, setBusy] =
+    useState(false);
+
+  useEffect(() => {
+    if (
+      expiresIn <= 0 &&
+      retryAfter <= 0
+    ) {
+      return;
+    }
+
+    const timer =
+      window.setInterval(() => {
+        setExpiresIn((value) =>
+          Math.max(0, value - 1),
+        );
+        setRetryAfter((value) =>
+          Math.max(0, value - 1),
+        );
+      }, 1000);
+
+    return () =>
+      window.clearInterval(timer);
+  }, [
+    expiresIn,
+    retryAfter,
+  ]);
+
+  const destination = () => {
+    const from = (
+      location.state as {
+        from?: string;
+      } | null
+    )?.from;
+
+    if (
+      from &&
+      !from.startsWith("/login") &&
+      !from.startsWith("/register")
+    ) {
+      return from;
+    }
+
+    return "/report";
+  };
+
+  const requestOtp = async (
+    event: FormEvent,
+  ) => {
+    event.preventDefault();
+    setError("");
+    setInfo("");
+
+    const normalized =
+      normalizePhone(phone);
+
+    if (
+      normalized.length !== 10 ||
+      !/^[6789]/.test(normalized)
+    ) {
+      setError(
+        t("auth.invalidPhone"),
+      );
+      return;
+    }
+
+    setBusy(true);
+
+    try {
+      const response =
+        await requestCitizenOtp({
+          phone: normalized,
+          name:
+            name.trim() ||
+            undefined,
+          email:
+            email.trim() ||
+            undefined,
+          language,
+        });
+
+      setPhone(normalized);
+      setDemoOtp(
+        response.demo_otp ?? "",
+      );
+      setDeliveryMode(
+        response.delivery_mode,
+      );
+      setInfo(
+        response.message ||
+          t("auth.codeSent"),
+      );
+      setExpiresIn(
+        response.expires_in_seconds,
+      );
+      setRetryAfter(
+        response.retry_after_seconds,
+      );
+      setCitizenStep("otp");
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : t("auth.sendError"),
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const verifyOtp = async (
+    event: FormEvent,
+  ) => {
+    event.preventDefault();
+    setError("");
+    setInfo("");
+
+    if (
+      !/^\d{6}$/.test(
+        otp.trim(),
+      )
+    ) {
+      setError(
+        t("auth.invalidOtp"),
+      );
+      return;
+    }
+
+    setBusy(true);
+
+    try {
+      await verifyCitizenOtp(
+        phone,
+        otp.trim(),
+      );
+
+      navigate(
+        destination(),
+        { replace: true },
+      );
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : t("auth.verifyError"),
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const adminSubmit = async (
+    event: FormEvent,
+  ) => {
+    event.preventDefault();
+    setError("");
+    setInfo("");
+    setBusy(true);
+
+    try {
+      const user =
+        await login(
+          adminEmail,
+          adminPassword,
+        );
+
+      navigate(
+        user.role === "admin"
+          ? "/admin"
+          : destination(),
+        { replace: true },
+      );
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : t("auth.verifyError"),
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <PageFrame>
+      <section className="auth-shell citizen-shell">
+        <div className="public-page-heading">
+          <div className="section-kicker">
+            {t("auth.citizen")}
+          </div>
+          <h1>{t("auth.pageTitle")}</h1>
+          <p>{t("auth.pageCopy")}</p>
+        </div>
+
+        <div className="auth-layout">
+          <div className="auth-intro">
+            <div className="government-panel-title">
+              {t("auth.simple")}
+            </div>
+
+            <h2>
+              {t("auth.easyTitle")}
+            </h2>
+
+            <p>
+              {t("auth.easyCopy")}
+            </p>
+
+            <div className="auth-points">
+              <div>
+                <span>01</span>
+                <div>
+                  <strong>
+                    {t("auth.point1")}
+                  </strong>
+                  <p>
+                    {t("auth.point1Copy")}
+                  </p>
+                </div>
+              </div>
+
+              <div>
+                <span>02</span>
+                <div>
+                  <strong>
+                    {t("auth.point2")}
+                  </strong>
+                  <p>
+                    {t("auth.point2Copy")}
+                  </p>
+                </div>
+              </div>
+
+              <div>
+                <span>03</span>
+                <div>
+                  <strong>
+                    {t("auth.point3")}
+                  </strong>
+                  <p>
+                    {t("auth.point3Copy")}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="auth-language-note">
+              {t("auth.languageNote")} · {language.toUpperCase()}
+            </div>
+          </div>
+
+          <div className="auth-card">
+            <div className="portal-tabs">
+              <button
+                type="button"
+                className={
+                  portal === "citizen"
+                    ? "active"
+                    : ""
+                }
+                onClick={() => {
+                  setPortal("citizen");
+                  setError("");
+                  setInfo("");
+                }}
+              >
+                {t("auth.citizen")}
+              </button>
+
+              <button
+                type="button"
+                className={
+                  portal === "admin"
+                    ? "active"
+                    : ""
+                }
+                onClick={() => {
+                  setPortal("admin");
+                  setError("");
+                  setInfo("");
+                }}
+              >
+                {t("auth.admin")}
+              </button>
+            </div>
+
+            {portal === "citizen" ? (
+              citizenStep === "details" ? (
+                <form
+                  onSubmit={requestOtp}
+                >
+                  <div className="auth-card-heading">
+                    <div className="auth-number">
+                      01
+                    </div>
+                    <div>
+                      <div className="section-kicker">
+                        {t("auth.citizen")}
+                      </div>
+                      <h2>
+                        {t("auth.mobileTitle")}
+                      </h2>
+                    </div>
+                  </div>
+
+                  <p className="auth-note">
+                    {t("auth.noPassword")}
+                  </p>
+
+                  <label className="field-label">
+                    {t("auth.mobile")}
+                  </label>
+
+                  <div className="phone-input-row">
+                    <span>+91</span>
+                    <input
+                      className="input-ui"
+                      value={phone}
+                      onChange={(event) =>
+                        setPhone(
+                          normalizePhone(
+                            event.target.value,
+                          ),
+                        )
+                      }
+                      inputMode="numeric"
+                      maxLength={10}
+                      placeholder={t(
+                        "auth.mobilePlaceholder",
+                      )}
+                      autoFocus
+                    />
+                  </div>
+
+                  <label className="field-label mt-5">
+                    {t("auth.name")} {" "}
+                    <span>
+                      {t("auth.firstTime")}
+                    </span>
+                  </label>
+
+                  <input
+                    className="input-ui"
+                    value={name}
+                    onChange={(event) =>
+                      setName(
+                        event.target.value,
+                      )
+                    }
+                    placeholder={t(
+                      "auth.namePlaceholder",
+                    )}
+                  />
+
+                  <label className="field-label mt-5">
+                    {t("auth.email")} {" "}
+                    <span>
+                      {t("auth.optional")}
+                    </span>
+                  </label>
+
+                  <input
+                    className="input-ui"
+                    type="email"
+                    value={email}
+                    onChange={(event) =>
+                      setEmail(
+                        event.target.value,
+                      )
+                    }
+                    placeholder={t(
+                      "auth.emailPlaceholder",
+                    )}
+                  />
+
+                  {error && (
+                    <div className="auth-error">
+                      {error}
+                    </div>
+                  )}
+
+                  {info && (
+                    <div className="auth-info">
+                      {info}
+                    </div>
+                  )}
+
+                  <button
+                    type="submit"
+                    disabled={busy}
+                    className="citizen-primary-btn w-full mt-6"
+                  >
+                    {busy
+                      ? t(
+                          "auth.sending",
+                        )
+                      : t(
+                          "auth.sendOtp",
+                        )}
+                  </button>
+
+                  {deliveryMode ===
+                    "demo" && (
+                    <div className="demo-note">
+                      {t(
+                        "auth.demo",
+                      )}
+                    </div>
+                  )}
+                </form>
+              ) : (
+                <form
+                  onSubmit={verifyOtp}
+                >
+                  <div className="auth-card-heading">
+                    <div className="auth-number">
+                      02
+                    </div>
+                    <div>
+                      <div className="section-kicker">
+                        {t("auth.citizen")}
+                      </div>
+                      <h2>
+                        {t("auth.otpTitle")}
+                      </h2>
+                    </div>
+                  </div>
+
+                  <p className="auth-note">
+                    +91 {phone} · {t("auth.otpExpires")} {" "}
+                    {Math.max(
+                      0,
+                      Math.ceil(
+                        expiresIn / 60,
+                      ),
+                    )} {" "}
+                    {t("auth.minutes")}
+                  </p>
+
+                  {info && (
+                    <div className="auth-info">
+                      {info}
+                    </div>
+                  )}
+
+                  {demoOtp && (
+                    <div className="otp-demo-box">
+                      <div>
+                        <span>
+                          {t("auth.demoCode")}
+                        </span>
+                        <strong>
+                          {demoOtp}
+                        </strong>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setOtp(
+                            demoOtp,
+                          )
+                        }
+                      >
+                        {t("auth.useCode")}
+                      </button>
+                    </div>
+                  )}
+
+                  <label className="field-label">
+                    {t("auth.otp")}
+                  </label>
+
+                  <input
+                    className="input-ui otp-input"
+                    value={otp}
+                    onChange={(event) =>
+                      setOtp(
+                        event.target.value
+                          .replace(
+                            /\D/g,
+                            "",
+                          )
+                          .slice(0, 6),
+                      )
+                    }
+                    inputMode="numeric"
+                    maxLength={6}
+                    placeholder="000000"
+                    autoFocus
+                  />
+
+                  {error && (
+                    <div className="auth-error">
+                      {error}
+                    </div>
+                  )}
+
+                  <button
+                    type="submit"
+                    disabled={
+                      busy ||
+                      expiresIn <= 0
+                    }
+                    className="citizen-primary-btn w-full mt-5"
+                  >
+                    {busy
+                      ? t(
+                          "auth.verifying",
+                        )
+                      : t(
+                          "auth.verify",
+                        )}
+                  </button>
+
+                  <div className="otp-footer-row">
+                    <button
+                      type="button"
+                      className="text-link-button"
+                      onClick={() => {
+                        setCitizenStep(
+                          "details",
+                        );
+                        setDemoOtp("");
+                        setOtp("");
+                        setError("");
+                        setInfo("");
+                      }}
+                    >
+                      {t("auth.change")}
+                    </button>
+
+                    <button
+                      type="button"
+                      className="text-link-button"
+                      disabled={
+                        retryAfter > 0 ||
+                        busy
+                      }
+                      onClick={requestOtp}
+                    >
+                      {retryAfter > 0
+                        ? `${t("auth.resend")} ${retryAfter}s`
+                        : t("auth.resend")}
+                    </button>
+                  </div>
+                </form>
+              )
+            ) : (
+              <form
+                onSubmit={adminSubmit}
+              >
+                <div className="auth-card-heading">
+                  <div className="auth-number">
+                    A
+                  </div>
+                  <div>
+                    <div className="section-kicker">
+                      {t("auth.admin")}
+                    </div>
+                    <h2>
+                      {t(
+                        "auth.adminTitle",
+                      )}
+                    </h2>
+                  </div>
+                </div>
+
+                <p className="auth-note">
+                  {t("auth.adminCopy")}
+                </p>
+
+                <label className="field-label">
+                  {t("auth.adminEmail")}
+                </label>
+
+                <input
+                  className="input-ui"
+                  type="email"
+                  value={adminEmail}
+                  onChange={(event) =>
+                    setAdminEmail(
+                      event.target.value,
+                    )
+                  }
+                  placeholder="admin@example.com"
+                  autoFocus
+                />
+
+                <label className="field-label mt-5">
+                  {t("auth.password")}
+                </label>
+
+                <input
+                  className="input-ui"
+                  type="password"
+                  value={adminPassword}
+                  onChange={(event) =>
+                    setAdminPassword(
+                      event.target.value,
+                    )
+                  }
+                  placeholder={t(
+                    "auth.passwordPlaceholder",
+                  )}
+                />
+
+                {error && (
+                  <div className="auth-error">
+                    {error}
+                  </div>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={busy}
+                  className="citizen-primary-btn w-full mt-6"
+                >
+                  {busy
+                    ? t(
+                        "auth.verifying",
+                      )
+                    : t(
+                        "auth.adminButton",
+                      )}
+                </button>
+
+                <div className="admin-demo-note">
+                  {t("auth.adminNotice")}
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+      </section>
+    </PageFrame>
+  );
 }

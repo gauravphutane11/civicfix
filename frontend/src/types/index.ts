@@ -1,6 +1,7 @@
 
 export interface AuthUser { id:number; name:string; email:string|null; phone:string|null; role:string; department:string|null; }
 export interface AuthResponse { access_token:string; token_type:string; user:AuthUser; }
+export interface CitizenOtpRequestResponse { message:string; expires_in_seconds:number; retry_after_seconds:number; demo_otp:string|null; is_new_user:boolean; delivery_mode:string; }
 export type IssueCategory = "pothole" | "garbage" | "streetlight" | "drainage" | "road_infrastructure" | "water_supply" | "other";
 export type IssueStatus = "open" | "assigned" | "in_progress" | "resolved" | "rejected";
 export type PriorityBand = "CRITICAL" | "HIGH" | "MEDIUM" | "LOW";
