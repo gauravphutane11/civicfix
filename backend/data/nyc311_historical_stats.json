@@ -1,0 +1,53 @@
+{
+  "source": "NYC 311 Service Requests",
+  "source_period": "2019",
+  "records": 50000,
+  "category_counts": {
+    "road_infrastructure": 13751,
+    "garbage": 10342,
+    "water_supply": 9855,
+    "streetlight": 8238,
+    "pothole": 4126,
+    "drainage": 3688
+  },
+  "top_descriptors": {
+    "streetlight": [
+      "Street Light Out"
+    ],
+    "pothole": [
+      "Pothole",
+      "Cave-in",
+      "Failed Street Repair",
+      "Defective Hardware",
+      "Rough/Pitted/Cracked Roads"
+    ],
+    "road_infrastructure": [
+      "Broken Sidewalk",
+      "Sidewalk Violation",
+      "Sidewalk Collapsed",
+      "Defective Hardware",
+      "Rough/Pitted/Cracked Roads"
+    ],
+    "water_supply": [
+      "Dirty Water",
+      "Leak",
+      "Hydrant Running",
+      "Hydrant Leaking",
+      "Possible Water Main Break"
+    ],
+    "drainage": [
+      "Sewer Backup",
+      "Catch Basin Clogged/Flooding",
+      "Sewer Odor",
+      "Street Flooding",
+      "Catch Basin Sunken/Damaged"
+    ],
+    "garbage": [
+      "E3 Dirty Sidewalk",
+      "E3A Dirty Area/Alleyway",
+      "E5 Loose Rubbish",
+      "1 Missed Collection",
+      "Bulk-Missed"
+    ]
+  }
+}

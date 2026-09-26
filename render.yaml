@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: civicfix-api
+    runtime: python
+    buildCommand: pip install -r backend/requirements.txt
+    startCommand: uvicorn backend.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.10
+      - key: DATABASE_URL
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false
+      - key: AUTH_SECRET
+        generateValue: true
+      - key: ACCESS_TOKEN_HOURS
+        value: "12"
+      - key: UPLOAD_DIR
+        value: /opt/render/project/src/uploads
