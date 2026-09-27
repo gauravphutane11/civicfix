@@ -8,7 +8,15 @@ load_dotenv(BASE_DIR / ".env")
 DEFAULT_DATA_DIR = Path(os.getenv("CIVICFIX_DATA_DIR", str(Path.home() / "AppData" / "Local" / "CivicFix")))
 DEFAULT_DATA_DIR.mkdir(parents=True, exist_ok=True)
 DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite:///{DEFAULT_DATA_DIR / 'civicfix.db'}")
-CORS_ORIGINS = [o.strip() for o in os.getenv("CORS_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173").split(",") if o.strip()]
+CORS_ORIGINS = [
+    o.strip()
+    for o in os.getenv(
+        "CORS_ORIGINS",
+        "http://localhost:5173,http://127.0.0.1:5173,https://*.vercel.app",
+    ).split(",")
+    if o.strip()
+]
+CORS_ORIGIN_REGEX = os.getenv("CORS_ORIGIN_REGEX", r"https://.*\.vercel\.app|http://localhost:\d+|http://127\.0\.0\.1:\d+")
 UPLOAD_DIR = Path(os.getenv("UPLOAD_DIR", str(BASE_DIR / "uploads")))
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 

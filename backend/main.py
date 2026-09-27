@@ -4,7 +4,7 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy import inspect, text
 
 from .database import Base, engine, SessionLocal
-from .config import CORS_ORIGINS, UPLOAD_DIR
+from .config import CORS_ORIGIN_REGEX, CORS_ORIGINS, UPLOAD_DIR
 from . import models
 from .routers import complaints, civic_issues, dashboard, sla, auth, field_officer
 from .seed import seed_if_empty
@@ -25,6 +25,7 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=CORS_ORIGINS,
+    allow_origin_regex=CORS_ORIGIN_REGEX,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
