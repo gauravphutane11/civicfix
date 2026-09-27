@@ -59,8 +59,10 @@ function Icon({
 
 export default function PageFrame({
   children,
+  navItems,
 }: {
   children: ReactNode;
+  navItems?: Array<{label:string; active?:boolean; onClick:()=>void}>;
 }) {
   const { user, logout } = useAuth();
   const { t } = useLanguage();
@@ -113,36 +115,52 @@ export default function PageFrame({
           </Link>
 
           <nav className="citizen-nav hidden lg:flex">
-            <Link
-              className={is("/") ? "active" : ""}
-              to="/"
-            >
-              <Icon name="home" />
-              {t("nav.home")}
-            </Link>
+            {navItems ? (
+              navItems.map((item) => (
+                <button
+                  key={item.label}
+                  type="button"
+                  className={item.active ? "active" : ""}
+                  onClick={item.onClick}
+                >
+                  {item.label}
+                </button>
+              ))
+            ) : (
+              <>
+                <Link
+                  className={is("/") ? "active" : ""}
+                  to="/"
+                >
+                  <Icon name="home" />
+                  {t("nav.home")}
+                </Link>
 
-            <Link
-              className={is("/report") ? "active" : ""}
-              to={citizenPath}
-            >
-              <Icon name="report" />
-              {t("nav.report")}
-            </Link>
+                <Link
+                  className={is("/report") ? "active" : ""}
+                  to={citizenPath}
+                >
+                  <Icon name="report" />
+                  {t("nav.report")}
+                </Link>
 
-            <Link
-              className={is("/track") ? "active" : ""}
-              to={citizenPath}
-            >
-              <Icon name="list" />
-              {t("nav.track")}
-            </Link>
+                <Link
+                  className={is("/complaints") ? "active" : ""}
+                  to={complaintsPath}
+                >
+                  <Icon name="list" />
+                  {t("nav.complaints")}
+                </Link>
 
-            <Link
-              className={is("/complaints") ? "active" : ""}
-              to={complaintsPath}
-            >
-              {t("nav.complaints")}
-            </Link>
+                <Link
+                  className={is("/track") ? "active" : ""}
+                  to={citizen ? "/track" : "/login"}
+                >
+                  <Icon name="list" />
+                  {t("nav.track")}
+                </Link>
+              </>
+            )}
           </nav>
 
           <div className="citizen-actions">
@@ -189,15 +207,6 @@ export default function PageFrame({
           </div>
         </div>
       </header>
-
-      <div className="citizen-service-nav">
-        <div className="citizen-shell citizen-service-nav-inner">
-          <Link to={citizenPath}>{t("nav.report")}</Link>
-          <Link to={citizenPath}>{t("nav.track")}</Link>
-          <Link to={complaintsPath}>{t("nav.complaints")}</Link>
-          <a href="#help">{t("nav.help")}</a>
-        </div>
-      </div>
 
       <main>{children}</main>
 

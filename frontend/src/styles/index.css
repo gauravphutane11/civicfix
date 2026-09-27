@@ -160,7 +160,8 @@ button:disabled {
   align-items: stretch;
 }
 
-.citizen-nav a {
+.citizen-nav a,
+.citizen-nav button {
   display: inline-flex;
   align-items: center;
   gap: 7px;
@@ -172,12 +173,14 @@ button:disabled {
   font-weight: 750;
 }
 
-.citizen-nav a:hover {
+.citizen-nav a:hover,
+.citizen-nav button:hover {
   background: #faf8f9;
   color: var(--portal-maroon);
 }
 
-.citizen-nav a.active {
+.citizen-nav a.active,
+.citizen-nav button.active {
   color: var(--portal-maroon);
   border-bottom-color: var(--portal-maroon);
 }
@@ -1499,6 +1502,28 @@ button:disabled {
   color: #59687d;
   font-size: 12px;
   line-height: 1.7;
+}
+
+.ai-language-card {
+  margin-top: 12px;
+  border-left-color: #6f7d8b;
+}
+
+.ai-language-line {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-top: 7px;
+}
+
+.ai-language-line strong {
+  color: var(--portal-navy-dark);
+  font-size: 14px;
+}
+
+.ai-language-line span {
+  color: var(--portal-muted);
+  font-size: 10px;
 }
 
 .result-side {

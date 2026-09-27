@@ -193,6 +193,16 @@ function Result({
             </div>
 
             <div>
+              <span>{t("result.inputLanguage")}</span>
+              <strong>{result.input_language_name ?? "—"}</strong>
+              <small>
+                {result.language_confidence != null
+                  ? `${Math.round(result.language_confidence * 100)}% ${t("result.confidence")}`
+                  : t("result.detected")}
+              </small>
+            </div>
+
+            <div>
               <span>{t("result.service")}</span>
               <strong>
                 {result.sla_target_hours ?? "—"}h
@@ -212,6 +222,23 @@ function Result({
                 t("result.defaultExplanation")}
             </p>
           </div>
+
+          {result.input_language_name && (
+            <div className="plain-card ai-language-card">
+              <div className="section-kicker">
+                {t("result.aiLanguage")}
+              </div>
+              <div className="ai-language-line">
+                <strong>{result.input_language_name}</strong>
+                <span>
+                  {result.language_confidence != null
+                    ? `${Math.round(result.language_confidence * 100)}% ${t("result.confidence")}`
+                    : t("result.detected")}
+                </span>
+              </div>
+              <p>{t("result.aiLanguageCopy")}</p>
+            </div>
+          )}
         </div>
 
         <aside className="result-side">
@@ -351,6 +378,14 @@ export default function ReportIssue() {
     useState<number | undefined>();
   const [locationAccuracy, setLocationAccuracy] =
     useState<number | null>(null);
+  const [photoLatitude, setPhotoLatitude] =
+    useState<number | undefined>();
+  const [photoLongitude, setPhotoLongitude] =
+    useState<number | undefined>();
+  // CivicFix accepts evidence captured from the live camera only.
+  const photoCaptureMode = "live_camera" as const;
+  const [photoLocationAccuracy, setPhotoLocationAccuracy] =
+    useState<number | null>(null);
 
   const [listening, setListening] =
     useState(false);
@@ -371,6 +406,10 @@ export default function ReportIssue() {
     useRef<SpeechRecognitionLike | null>(
       null,
     );
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const [cameraOpen, setCameraOpen] = useState(false);
+  const [cameraStream, setCameraStream] =
+    useState<MediaStream | null>(null);
 
   const locationCaptured =
     latitude !== undefined &&
@@ -384,6 +423,12 @@ export default function ReportIssue() {
       }
     };
   }, [preview]);
+
+  useEffect(() => {
+    return () => {
+      cameraStream?.getTracks().forEach((track) => track.stop());
+    };
+  }, [cameraStream]);
 
   const locate = () => {
     setError("");
@@ -512,54 +557,140 @@ export default function ReportIssue() {
     recognition.start();
   };
 
-  const handleImage = (
+  const handleLiveImage = (
     file: File | undefined,
+    capturedLatitude?: number,
+    capturedLongitude?: number,
+    capturedAccuracy?: number,
   ) => {
     setError("");
+    if (!file) return;
 
-    if (!file) {
-      return;
-    }
-
-    if (
-      !ALLOWED_IMAGE_TYPES.includes(
-        file.type,
-      )
-    ) {
+    // This handler is intentionally reachable only from the live-camera
+    // This handler only accepts frames produced by the live camera.
+    if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
       setImage(null);
       setPreview("");
-      setError(
-        t("report.invalidImageType"),
-      );
+      setError(t("report.invalidImageType"));
       return;
     }
 
     if (file.size > MAX_IMAGE_SIZE) {
       setImage(null);
       setPreview("");
+      setError(t("report.invalidImageSize"));
+      return;
+    }
+
+    if (
+      capturedLatitude === undefined ||
+      capturedLongitude === undefined
+    ) {
+      setImage(null);
+      setPreview("");
+      setPhotoLatitude(undefined);
+      setPhotoLongitude(undefined);
+      setPhotoLocationAccuracy(null);
       setError(
-        t("report.invalidImageSize"),
+        "Live photo location could not be captured. Please allow location access and take the photo again.",
       );
       return;
     }
 
-    if (preview) {
-      URL.revokeObjectURL(preview);
-    }
-
-    const nextPreview =
-      URL.createObjectURL(file);
+    if (preview) URL.revokeObjectURL(preview);
 
     setImage(file);
-    setPreview(nextPreview);
+    setPreview(URL.createObjectURL(file));
+    setPhotoLatitude(capturedLatitude);
+    setPhotoLongitude(capturedLongitude);
+    setPhotoLocationAccuracy(capturedAccuracy ?? null);
+  };
+
+  const stopCamera = () => {
+    cameraStream?.getTracks().forEach((track) => track.stop());
+    setCameraStream(null);
+    setCameraOpen(false);
+  };
+
+  const openLiveCamera = async () => {
+    setError("");
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setError("Live camera is not supported by this browser. Please use a modern browser with camera access.");
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: "environment" }, width: { ideal: 1920 }, height: { ideal: 1080 } },
+        audio: false,
+      });
+      setCameraStream(stream);
+      setCameraOpen(true);
+      requestAnimationFrame(() => {
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          videoRef.current.play().catch(() => {});
+        }
+      });
+    } catch {
+      setError("Camera access was denied or unavailable. Please allow camera permission and try again.");
+    }
+  };
+
+  const captureLivePhoto = () => {
+    const video = videoRef.current;
+    if (!video || video.readyState < 2) {
+      setError("Camera is not ready yet. Please wait a moment and try again.");
+      return;
+    }
+    if (!navigator.geolocation) {
+      setError("Location access is required for a live photo. Please enable location permission.");
+      return;
+    }
+    const canvas = document.createElement("canvas");
+    canvas.width = video.videoWidth || 1280;
+    canvas.height = video.videoHeight || 720;
+    const context = canvas.getContext("2d");
+    if (!context) {
+      setError("Could not capture the camera image. Please try again.");
+      return;
+    }
+    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+    canvas.toBlob((blob) => {
+      if (!blob) {
+        setError("Could not create the photo. Please try again.");
+        return;
+      }
+      const file = new File([blob], `civicfix-live-${Date.now()}.jpg`, { type: "image/jpeg" });
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          handleLiveImage(file, position.coords.latitude, position.coords.longitude, position.coords.accuracy);
+          stopCamera();
+        },
+        () => setError("We could not capture the photo location. Please allow location access and try again."),
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 },
+      );
+    }, "image/jpeg", 0.92);
   };
 
   const clearImage = () => {
-    if (preview) {
-      URL.revokeObjectURL(preview);
-    }
+    if (preview) URL.revokeObjectURL(preview);
+    stopCamera();
     setPreview("");
     setImage(null);
+    setPhotoLatitude(undefined);
+    setPhotoLongitude(undefined);
+    setPhotoLocationAccuracy(null);
+  };
+
+  const distanceBetweenMeters = (
+    lat1: number, lon1: number, lat2: number, lon2: number,
+  ) => {
+    const earthRadius = 6371000;
+    const toRadians = (value: number) => (value * Math.PI) / 180;
+    const dLat = toRadians(lat2 - lat1);
+    const dLon = toRadians(lon2 - lon1);
+    const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRadians(lat1)) * Math.cos(toRadians(lat2)) * Math.sin(dLon / 2) ** 2;
+    return earthRadius * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   };
 
   const submit = async (
@@ -582,11 +713,39 @@ export default function ReportIssue() {
       return;
     }
 
+    if (
+      photoCaptureMode !== "live_camera" ||
+      photoLatitude === undefined ||
+      photoLongitude === undefined
+    ) {
+      setError(
+        "Please capture a live photo with location before submitting your complaint.",
+      );
+      return;
+    }
+
     if (!locationCaptured) {
       setError(
         t("report.locationRequired"),
       );
       return;
+    }
+
+    if (
+      photoCaptureMode === "live_camera" &&
+      photoLatitude !== undefined &&
+      photoLongitude !== undefined
+    ) {
+      const photoDistance = distanceBetweenMeters(
+        photoLatitude,
+        photoLongitude,
+        latitude as number,
+        longitude as number,
+      );
+      if (photoDistance > 50) {
+        setError(`Photo location is ${Math.round(photoDistance)} m away from the reported location. Please capture the civic evidence near the issue.`);
+        return;
+      }
     }
 
     setBusy(true);
@@ -595,12 +754,16 @@ export default function ReportIssue() {
       const response =
         await api.submitComplaint({
           raw_text: text.trim(),
+          language,
           citizen_name:
             user?.name,
           citizen_phone:
             user?.phone ?? undefined,
           latitude,
           longitude,
+          photo_latitude: photoLatitude,
+          photo_longitude: photoLongitude,
+          photo_capture_mode: photoCaptureMode,
           image,
         });
 
@@ -770,20 +933,14 @@ export default function ReportIssue() {
                 </p>
 
                 <div className="photo-upload-row">
-                  <label className="photo-button">
-                    {t(
-                      "report.choosePhoto",
-                    )}
-                    <input
-                      type="file"
-                      accept="image/jpeg,image/png,image/webp"
-                      onChange={(event) =>
-                        handleImage(
-                          event.target.files?.[0],
-                        )
-                      }
-                    />
-                  </label>
+                  <button
+                    type="button"
+                    className="photo-button"
+                    onClick={openLiveCamera}
+                    disabled={cameraOpen}
+                  >
+                    {t("report.livePhoto")}
+                  </button>
 
                   {image && (
                     <button
@@ -795,6 +952,32 @@ export default function ReportIssue() {
                     </button>
                   )}
                 </div>
+
+                <div className="mt-2 text-xs text-slate-500">
+                  Live camera capture only. Photos must be captured with the device camera.
+                </div>
+
+                {cameraOpen && (
+                  <div className="mt-3 rounded-2xl border border-slate-200 bg-slate-950 p-2">
+                    <video
+                      ref={videoRef}
+                      autoPlay
+                      playsInline
+                      muted
+                      className="w-full max-h-[360px] rounded-xl object-cover"
+                    />
+                    <div className="flex flex-wrap gap-2 p-2">
+                      <button type="button" onClick={captureLivePhoto} className="citizen-primary-btn">{t("report.capturePhoto")}</button>
+                      <button type="button" onClick={stopCamera} className="citizen-outline-btn">{t("report.cancelCamera")}</button>
+                    </div>
+                  </div>
+                )}
+
+                {photoCaptureMode === "live_camera" && photoLatitude !== undefined && photoLongitude !== undefined && (
+                  <div className="mt-3 text-xs text-slate-500">
+                    {t("report.livePhotoLocation")}: {photoLatitude.toFixed(5)}, {photoLongitude.toFixed(5)}{photoLocationAccuracy !== null ? ` · ±${Math.round(photoLocationAccuracy)}m` : ""}
+                  </div>
+                )}
 
                 {preview && (
                   <div className="upload-preview">

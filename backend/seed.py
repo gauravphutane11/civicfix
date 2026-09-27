@@ -5,6 +5,8 @@ from .data.gazetteer import GAZETTEER
 from .ai.pipeline import run_triage, location_importance_of
 from .ai.priority import compute_priority
 from .security import hash_password
+from .worker_provisioning import provision_accounts, ADMIN_ACCOUNTS, WORKER_ACCOUNTS
+from .worker_routing import fill_queue_for_category, refresh_all_worker_statuses
 
 
 def seed_if_empty(db: Session):
@@ -17,19 +19,8 @@ def _seed_gazetteer(db: Session):
     for entry in GAZETTEER:
         db.add(models.Location(name=entry["name"], aliases=entry["aliases"], area_type=entry["area_type"], latitude=entry["latitude"], longitude=entry["longitude"], importance_weight=entry["importance_weight"], is_gazetteer=True))
 
-DEMO_ADMINS = [
-    ("Priyanka Deshmukh", "Roads & Infrastructure Dept."),
-    ("Arjun Kulkarni", "Sanitation Dept."),
-    ("Sameer Joshi", "Electrical Maintenance Dept."),
-    ("Neha Patil", "Water & Drainage Dept."),
-]
-
-
 def _seed_users(db: Session):
-    for name, dept in DEMO_ADMINS:
-        db.add(models.User(name=name, role=models.Role.ADMIN.value, department=dept))
-    db.add(models.User(name="Ward Control Room", role=models.Role.ADMIN.value, department="Control Room"))
-
+    provision_accounts(db)
 
 def _hours_ago(h: float) -> datetime:
     return datetime.now(timezone.utc) - timedelta(hours=h)
@@ -57,6 +48,15 @@ def _submit(db: Session, text: str, citizen: str, hours_ago: float) -> models.Co
 def _transition(db: Session, issue: models.CivicIssue, to_status: str, changed_by: str, note: str, hours_after_open: float = 1.0):
     old = issue.status; issue.status = to_status
     if to_status != models.IssueStatus.OPEN.value: issue.assigned_to = changed_by
+    if to_status in {
+        models.IssueStatus.OPEN.value,
+        models.IssueStatus.ASSIGNED.value,
+        models.IssueStatus.IN_PROGRESS.value,
+        models.IssueStatus.RESOLVED.value,
+        models.IssueStatus.REJECTED.value,
+    }:
+        for complaint in issue.complaints:
+            complaint.status = to_status
     when = issue.created_at + timedelta(hours=hours_after_open)
     db.add(models.StatusHistory(civic_issue_id=issue.id, from_status=old, to_status=to_status, changed_by=changed_by, note=note, changed_at=when))
     if to_status == models.IssueStatus.RESOLVED.value:
@@ -73,24 +73,24 @@ def _seed_complaints(db: Session):
     c1 = _submit(db, "Garbage has not been collected for a week near Shivaji Market, smells terrible.", "Kavya Nair", 70)
     _submit(db, "Overflowing trash bin near the market is attracting stray dogs, urgent cleanup needed.", "Farhan Sheikh", 65)
     issue = c1.civic_issue
-    _transition(db, issue, models.IssueStatus.ASSIGNED.value, "Arjun Kulkarni", "Assigned to sanitation crew.", 3)
-    _transition(db, issue, models.IssueStatus.IN_PROGRESS.value, "Arjun Kulkarni", "Cleanup crew dispatched.", 20)
+    _transition(db, issue, models.IssueStatus.ASSIGNED.value, "Garbage Worker 01", "Assigned to sanitation crew.", 3)
+    _transition(db, issue, models.IssueStatus.IN_PROGRESS.value, "Garbage Worker 01", "Cleanup crew dispatched.", 20)
 
     c2 = _submit(db, "Streetlight outside Gate 3 has been off for ten days, feels unsafe walking back to hostel at night.", "Ishaan Bhatt", 120)
-    _transition(db, c2.civic_issue, models.IssueStatus.ASSIGNED.value, "Sameer Joshi", "Assigned to electrical maintenance.", 4)
+    _transition(db, c2.civic_issue, models.IssueStatus.ASSIGNED.value, "Streetlight Worker 01", "Assigned to electrical maintenance.", 4)
 
     c3 = _submit(db, "Drain near Gate 2 is overflowing with dirty water after the rain, blocking the footpath.", "Meera Iyer", 30)
     _submit(db, "Open drain outside Gate 2 is flooding the road, sewage smell is unbearable.", "Devansh Rao", 26)
-    _transition(db, c3.civic_issue, models.IssueStatus.ASSIGNED.value, "Neha Patil", "Assigned to drainage team, tanker requested.", 6)
+    _transition(db, c3.civic_issue, models.IssueStatus.ASSIGNED.value, "Drainage Worker 01", "Assigned to drainage team, tanker requested.", 6)
 
     c4 = _submit(db, "Footpath tiles near the community park are broken and uneven, tripping hazard for elderly residents.", "Sanjana Ghosh", 96)
-    _transition(db, c4.civic_issue, models.IssueStatus.ASSIGNED.value, "Priyanka Deshmukh", "Assigned to roads crew.", 5)
-    _transition(db, c4.civic_issue, models.IssueStatus.IN_PROGRESS.value, "Priyanka Deshmukh", "Repair work started.", 30)
-    _transition(db, c4.civic_issue, models.IssueStatus.RESOLVED.value, "Priyanka Deshmukh", "Footpath tiles relaid and inspected.", 60)
+    _transition(db, c4.civic_issue, models.IssueStatus.ASSIGNED.value, "Road Infrastructure Worker 01", "Assigned to roads crew.", 5)
+    _transition(db, c4.civic_issue, models.IssueStatus.IN_PROGRESS.value, "Road Infrastructure Worker 01", "Repair work started.", 30)
+    _transition(db, c4.civic_issue, models.IssueStatus.RESOLVED.value, "Road Infrastructure Worker 01", "Footpath tiles relaid and inspected.", 60)
 
     c5 = _submit(db, "Streetlight near the underpass on Sinhagad Road is flickering badly every night.", "Tanmay Kulkarni", 80)
-    _transition(db, c5.civic_issue, models.IssueStatus.ASSIGNED.value, "Sameer Joshi", "Electrician assigned.", 4)
-    _transition(db, c5.civic_issue, models.IssueStatus.RESOLVED.value, "Sameer Joshi", "Faulty ballast replaced.", 40)
+    _transition(db, c5.civic_issue, models.IssueStatus.ASSIGNED.value, "Streetlight Worker 02", "Electrician assigned.", 4)
+    _transition(db, c5.civic_issue, models.IssueStatus.RESOLVED.value, "Streetlight Worker 02", "Faulty ballast replaced.", 40)
 
     _submit(db, "Minor pothole forming near the parking lot, not urgent but worth patching soon.", "Aditi Verma", 4)
     _submit(db, "No water supply in Green Valley Society since this morning.", "Rahul Deshpande", 6)
@@ -105,30 +105,15 @@ def _seed_complaints(db: Session):
 
 
 def ensure_demo_admin(db: Session):
-    """Create one local admin account for the prototype when it is missing."""
-    email = "admin@civicfix.local"
-    user = db.query(models.User).filter(models.User.email == email).first()
-    if not user:
-        user = db.query(models.User).filter(
-            models.User.name == "Ward Control Room",
-            models.User.role == models.Role.ADMIN.value,
-        ).first()
-    if user:
-        user.email = email
-        user.password_hash = user.password_hash or hash_password("Admin@12345")
-        user.role = models.Role.ADMIN.value
-        user.department = user.department or "Control Room"
-        db.commit()
-        return
+    """Backward-compatible wrapper for the unified provisioning catalog."""
+    provision_accounts(db)
+    db.commit()
 
-    db.add(
-        models.User(
-            name="Ward Control Room",
-            email=email,
-            phone=None,
-            role=models.Role.ADMIN.value,
-            department="Control Room",
-            password_hash=hash_password("Admin@12345"),
-        )
-    )
+
+def ensure_demo_field_officers(db: Session):
+    """Backward-compatible wrapper for the twelve category worker accounts."""
+    provision_accounts(db)
+    refresh_all_worker_statuses(db)
+    for category in {account.service_category for account in WORKER_ACCOUNTS if account.service_category}:
+        fill_queue_for_category(db, category)
     db.commit()

@@ -33,3 +33,5 @@ services:
         value: "5"
       - key: UPLOAD_DIR
         value: /opt/render/project/src/uploads
+      - key: MAX_ACTIVE_CASES_PER_WORKER
+        value: "3"

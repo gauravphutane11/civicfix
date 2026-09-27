@@ -296,6 +296,64 @@ export default function TrackComplaint() {
               )}
 
               {issue && (
+                <div className="citizen-paper-card mt-5 border-slate-200">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <div className="section-kicker">Resolution evidence</div>
+                      <h3 className="text-xl font-bold mt-1">Worker + citizen completion check</h3>
+                      <p className="text-sm text-slate-500 mt-2">A field officer captures a geotagged completion photo. You can optionally capture a fresh after-work photo from the same place so CivicFix can compare the two.</p>
+                    </div>
+                    <span className="tag bg-slate-100 text-slate-600">Photo + GPS</span>
+                  </div>
+
+                  {issue.completion_evidence.length > 0 ? (
+                    <div className="space-y-4 mt-5">
+                      {issue.completion_evidence.map((evidence) => {
+                        const worker = evidence.matched_field_evidence_id
+                          ? issue.field_work_evidence.find((item) => item.id === evidence.matched_field_evidence_id)
+                          : undefined;
+                        const statusText = evidence.verification_status === "verified"
+                          ? "AI matched — resolution verified"
+                          : evidence.verification_status === "admin_confirmed"
+                          ? "Admin confirmed — evidence accepted"
+                          : evidence.verification_status === "needs_review"
+                          ? "Needs admin review"
+                          : evidence.verification_status === "pending_worker_evidence"
+                          ? "Waiting for worker completion photo"
+                          : "Evidence rejected";
+                        return (
+                          <div key={evidence.id} className="rounded-2xl border border-slate-200 overflow-hidden">
+                            <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2">
+                              <strong>{statusText}</strong>
+                              {evidence.verification_score != null && <span className="font-mono text-sm font-bold">{Math.round(evidence.verification_score * 100)}% match</span>}
+                            </div>
+                            <div className="grid sm:grid-cols-2 gap-3 p-3">
+                              <div>
+                                <div className="text-xs font-bold text-slate-600 mb-2">Field officer photo</div>
+                                {worker ? <img src={imageUrl(worker.file_path)} alt="Field officer completion" className="w-full h-48 object-cover rounded-xl" /> : <div className="h-48 rounded-xl bg-slate-50 grid place-items-center text-sm text-slate-400">Waiting for worker evidence</div>}
+                              </div>
+                              <div>
+                                <div className="text-xs font-bold text-slate-600 mb-2">Your after-work photo</div>
+                                <img src={imageUrl(evidence.file_path)} alt="Citizen after-work" className="w-full h-48 object-cover rounded-xl" />
+                              </div>
+                            </div>
+                            <div className="grid sm:grid-cols-3 gap-3 px-3 pb-3 text-xs text-slate-500">
+                              <div><span className="block text-slate-400">Visual similarity</span><strong>{evidence.visual_similarity == null ? "—" : `${Math.round(evidence.visual_similarity * 100)}%`}</strong></div>
+                              <div><span className="block text-slate-400">Capture distance</span><strong>{evidence.location_distance_meters == null ? "—" : `${Math.round(evidence.location_distance_meters)} m`}</strong></div>
+                              <div><span className="block text-slate-400">Status</span><strong>{evidence.verification_status.replaceAll("_", " ")}</strong></div>
+                            </div>
+                            {evidence.verification_note && <p className="px-3 pb-4 text-xs text-slate-500">{evidence.verification_note}</p>}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="mt-4 rounded-xl border border-dashed border-slate-300 p-4 text-sm text-slate-400">No after-work confirmation photo has been submitted for this complaint.</div>
+                  )}
+                </div>
+              )}
+
+              {issue && (
                 <div className="timeline-card">
                   <div className="section-kicker">
                     {t("track.timeline")}

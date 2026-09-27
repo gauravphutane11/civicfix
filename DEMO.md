@@ -1,49 +1,71 @@
-# CivicFix 3-minute demo flow
+# CivicFix 4–5 minute integrated demo
 
-## 01 — Intake
-Open `/report` and submit:
+## 1. Citizen intake
 
-> Large pothole near Gate 2; several bikes are slipping at night.
+Open `/login` → choose **Citizen** → request OTP (demo mode).
 
-Optionally attach a photo and allow location.
+Go to `/report` and select Marathi. Use voice or type:
 
-## 02 — AI triage receipt
-Show:
+> आमच्या रस्त्यावर खूप मोठा खड्डा आहे.
 
+Capture/share the issue location and add the complaint photo.
+
+Show the receipt:
+
+- detected language
 - category + confidence
-- resolved location
+- location
 - duplicate intelligence
-- 100-point priority receipt
+- explainable 100-point priority
 - SLA window
 
-## 03 — Operations console
-Open `/admin`.
+## 2. Admin triage
 
-Point to the Gate 2 cluster on the map and show that multiple reports have become one civic issue.
+Open `/admin` and open the resulting civic issue. Show:
 
-Open the case file and explain:
-
-- complaint count
-- similarity evidence
+- AI category
+- complaint count / duplicate consolidation
 - priority factors
 - SLA state
-- assignment
-- status history
+- canonical department
+- assignment controls
 
-## 04 — Accountability loop
-Assign the case, then move:
+Assign it to the matching field officer department.
 
-`OPEN → ASSIGNED → IN PROGRESS → RESOLVED`
+## 3. Field officer
 
-The status trail and SLA state update through the real API.
+Open `/login` → choose **Service Officer**. Use the corresponding demo account from `FIELD_OFFICER_SETUP.md`.
 
-## 05 — Close
-Return to the metrics strip and show:
+Open the assigned complaint, click **Start work**, then upload a completion photo with browser location enabled. The upload is saved as field evidence and moves the work into progress.
 
-- total reports
-- civic issues
-- duplicates consolidated
-- high/critical workload
-- SLA compliance
+## 4. Citizen completion confirmation
 
-The story is simple: **many reports → one understandable civic issue → transparent action → auditable resolution.**
+Return to the citizen account → `/complaints`. On the resolved/in-progress case, use **Upload after-work photo**. CivicFix captures current GPS coordinates and compares the citizen photo with the field-worker completion photo.
+
+Two outcomes can be demonstrated:
+
+- sufficiently consistent image + location → `verified` → issue automatically becomes `RESOLVED`
+- weaker pair → `needs_review` → admin confirmation required
+
+## 5. Admin evidence confirmation
+
+Open the same case in `/admin`. Show the **Resolution evidence** card:
+
+- worker completion photo
+- citizen after-work photo
+- visual similarity
+- location distance
+- combined consistency score
+- evidence status
+
+Click **Confirm completion** to record the final admin decision.
+
+For an unsuccessful evidence case, **Reject & review** returns an auto-resolved issue to `IN_PROGRESS`.
+
+## 6. Citizen feedback
+
+After resolution, the citizen can optionally submit a 1–5 star rating and written review. The admin case drawer shows the feedback summary alongside resolution evidence.
+
+## Story to tell the judges
+
+**Citizen speaks naturally → AI understands the civic issue → municipality deduplicates and prioritizes it → the right field officer receives it → work is completed with geotagged evidence → citizen can independently upload an after-work photo → AI checks whether the two pieces of evidence are geographically and visually consistent → admin confirms the outcome → citizen rates the service.**

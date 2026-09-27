@@ -1,5 +1,6 @@
 from datetime import datetime
-from typing import Optional, List
+from typing import List, Optional
+
 from pydantic import BaseModel, ConfigDict, field_validator
 
 
@@ -67,6 +68,9 @@ class UserOut(BaseModel):
     phone: Optional[str]
     role: str
     department: Optional[str]
+    service_category: Optional[str] = None
+    availability_status: Optional[str] = None
+    is_active: bool = True
 
 
 class AuthResponse(BaseModel):
@@ -88,6 +92,9 @@ class AttachmentOut(BaseModel):
     id: int
     file_path: str
     content_type: Optional[str]
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    capture_mode: Optional[str] = None
     ai_tags: list = []
     ai_confidence: Optional[float] = None
     ai_notes: Optional[str] = None
@@ -100,6 +107,98 @@ class DuplicateInfoOut(BaseModel):
     similarity: Optional[float] = None
     shared_terms: List[str] = []
     civic_issue_code: Optional[str] = None
+
+
+class WorkReviewOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    complaint_id: int
+    civic_issue_id: int
+    citizen_id: int
+    officer_id: Optional[int]
+    rating: int
+    review: Optional[str]
+    created_at: datetime
+
+
+class WorkReviewCreate(BaseModel):
+    rating: int
+    review: Optional[str] = None
+
+    @field_validator("rating")
+    @classmethod
+    def validate_rating(cls, value: int) -> int:
+        if value < 1 or value > 5:
+            raise ValueError("Rating must be between 1 and 5.")
+        return value
+
+    @field_validator("review")
+    @classmethod
+    def validate_review(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+        value = value.strip()
+        if len(value) > 500:
+            raise ValueError("Review must be 500 characters or fewer.")
+        return value or None
+
+
+class FieldWorkEvidenceOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    civic_issue_id: int
+    officer_id: int
+    file_path: str
+    content_type: Optional[str]
+    capture_mode: str = "live_camera"
+    latitude: float
+    longitude: float
+    note: Optional[str]
+    uploaded_at: datetime
+
+
+class CompletionEvidenceOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    complaint_id: int
+    civic_issue_id: int
+    citizen_id: int
+    file_path: str
+    content_type: Optional[str]
+    capture_mode: str = "live_camera"
+    latitude: float
+    longitude: float
+    uploaded_at: datetime
+    matched_field_evidence_id: Optional[int]
+    visual_similarity: Optional[float]
+    location_distance_meters: Optional[float]
+    location_score: Optional[float]
+    verification_score: Optional[float]
+    verification_status: str
+    verification_note: Optional[str]
+    reviewed_by: Optional[str]
+    reviewed_at: Optional[datetime]
+
+
+class CompletionEvidenceDecision(BaseModel):
+    approved: bool
+    note: Optional[str] = None
+
+    @field_validator("note")
+    @classmethod
+    def validate_note(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+        value = value.strip()
+        if len(value) > 500:
+            raise ValueError("Decision note must be 500 characters or fewer.")
+        return value or None
+
+
+class CompletionEvidenceResponse(BaseModel):
+    evidence: CompletionEvidenceOut
+    issue_status: str
+    admin_confirmation_pending: bool = False
 
 
 class ComplaintOut(BaseModel):
@@ -122,6 +221,8 @@ class ComplaintOut(BaseModel):
     civic_issue_id: Optional[int]
     created_at: datetime
     attachments: List[AttachmentOut] = []
+    review: Optional[WorkReviewOut] = None
+    completion_evidence: List[CompletionEvidenceOut] = []
 
     @classmethod
     def model_validate(cls, obj, *args, **kwargs):
@@ -147,6 +248,8 @@ class ComplaintOut(BaseModel):
                     "civic_issue_id": obj.civic_issue_id,
                     "created_at": obj.created_at,
                     "attachments": getattr(obj, "attachments", []) or [],
+                    "review": getattr(obj, "work_review", None),
+                    "completion_evidence": getattr(obj, "completion_evidence", []) or [],
                 }
                 return super().model_validate(data, *args, **kwargs)
         return super().model_validate(obj, *args, **kwargs)
@@ -165,6 +268,15 @@ class ComplaintSubmitResponse(BaseModel):
     sla_target_hours: Optional[int]
     historical_context: Optional[dict] = None
     ai_explanation: Optional[str] = None
+    input_language: Optional[str] = None
+    input_language_name: Optional[str] = None
+    language_confidence: Optional[float] = None
+    normalized_text: Optional[str] = None
+    classification_method: Optional[str] = None
+    department: Optional[str] = None
+    assigned_to: Optional[str] = None
+    assignment_source: Optional[str] = None
+    assignment_note: Optional[str] = None
 
 
 class StatusHistoryOut(BaseModel):
@@ -199,11 +311,16 @@ class CivicIssueOut(BaseModel):
     status: str
     assigned_to: Optional[str]
     department: Optional[str]
+    assigned_at: Optional[datetime] = None
+    assignment_source: Optional[str] = None
+    assignment_note: Optional[str] = None
     complaint_count: int
     created_at: datetime
     updated_at: datetime
     resolved_at: Optional[datetime]
     complaints: List[ComplaintOut] = []
+    field_work_evidence: List[FieldWorkEvidenceOut] = []
+    completion_evidence: List[CompletionEvidenceOut] = []
     status_history: List[StatusHistoryOut] = []
     sla_record: Optional[SLAOut] = None
 
@@ -220,6 +337,10 @@ class CivicIssueSummary(BaseModel):
     priority_score: int
     priority_band: str
     status: str
+    department: Optional[str]
+    assigned_to: Optional[str] = None
+    assignment_source: Optional[str] = None
+    assignment_note: Optional[str] = None
     complaint_count: int
     created_at: datetime
     sla_record: Optional[SLAOut] = None
@@ -233,7 +354,7 @@ class StatusUpdate(BaseModel):
 
 class AssignmentUpdate(BaseModel):
     assigned_to: str
-    department: str
+    department: Optional[str] = None
     changed_by: Optional[str] = "Admin"
 
 
@@ -265,3 +386,28 @@ class MapPoint(BaseModel):
     status: str
     complaint_count: int
     location_name: Optional[str]
+
+
+class WorkerRosterOut(BaseModel):
+    id: int
+    name: str
+    email: Optional[str]
+    role: str
+    service_category: Optional[str]
+    department: Optional[str]
+    availability_status: str
+    is_active: bool
+    active_cases: int
+    queued_cases: int
+    current_issue_codes: list[str] = []
+
+
+class WorkerOverviewOut(BaseModel):
+    worker: WorkerRosterOut
+    category: str
+    department: str
+    max_active_cases: int
+    category_open_cases: int
+    category_active_cases: int
+    category_resolved_cases: int
+    sibling_workers: list[WorkerRosterOut] = []

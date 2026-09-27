@@ -7,31 +7,31 @@ import { useLanguage } from "../i18n";
 const ISSUE_MEDIA = [
   {
     category: "pothole",
-    image: "/issues/pothole.svg",
+    image: "/issues/potholes.png",
     title: "Potholes & road damage",
     copy: "A pothole, broken road or unsafe road surface.",
   },
   {
     category: "drainage",
-    image: "/issues/drainage.svg",
+    image: "/issues/drainage.png",
     title: "Blocked drains & waterlogging",
     copy: "Water collecting because a drain is blocked or overflowing.",
   },
   {
     category: "garbage",
-    image: "/issues/garbage.svg",
+    image: "/issues/garbage.png",
     title: "Garbage & waste",
     copy: "Overflowing bins, loose waste or dirty public areas.",
   },
   {
     category: "streetlight",
-    image: "/issues/streetlight.svg",
+    image: "/issues/streetlight.png",
     title: "Broken streetlights",
     copy: "A streetlight that is out, damaged or unsafe at night.",
   },
   {
     category: "sidewalk",
-    image: "/issues/sidewalk.svg",
+    image: "/issues/others.png",
     title: "Broken footpaths & sidewalks",
     copy: "Broken tiles, uneven paths or blocked walking space.",
   },

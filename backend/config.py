@@ -5,7 +5,9 @@ from dotenv import load_dotenv
 BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / ".env")
 
-DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite:///{BASE_DIR / 'civicfix.db'}")
+DEFAULT_DATA_DIR = Path(os.getenv("CIVICFIX_DATA_DIR", str(Path.home() / "AppData" / "Local" / "CivicFix")))
+DEFAULT_DATA_DIR.mkdir(parents=True, exist_ok=True)
+DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite:///{DEFAULT_DATA_DIR / 'civicfix.db'}")
 CORS_ORIGINS = [o.strip() for o in os.getenv("CORS_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173").split(",") if o.strip()]
 UPLOAD_DIR = Path(os.getenv("UPLOAD_DIR", str(BASE_DIR / "uploads")))
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
@@ -21,6 +23,7 @@ DUPLICATE_SIMILARITY_THRESHOLD = 0.42
 
 AUTH_SECRET = os.getenv("AUTH_SECRET", "civicfix-dev-secret-change-me")
 ACCESS_TOKEN_HOURS = int(os.getenv("ACCESS_TOKEN_HOURS", 12))
+MAX_ACTIVE_CASES_PER_WORKER = int(os.getenv("MAX_ACTIVE_CASES_PER_WORKER", "3"))
 
 OTP_EXPIRY_MINUTES = int(os.getenv("OTP_EXPIRY_MINUTES", 5))
 OTP_COOLDOWN_SECONDS = int(os.getenv("OTP_COOLDOWN_SECONDS", 30))

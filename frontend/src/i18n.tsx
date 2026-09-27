@@ -71,7 +71,7 @@ const T: Record<LanguageCode, Dictionary> = {
     "nav.home": "Home", "nav.report": "Report a problem", "nav.track": "Track complaint", "nav.complaints": "My complaints", "nav.help": "Help", "nav.login": "Citizen login", "nav.logout": "Sign out", "nav.language": "Language",
     "home.kicker": "Citizen service", "home.title": "See a civic problem? Tell us.", "home.copy": "Report potholes, blocked drains, garbage, broken streetlights, water problems and other local issues. Add a photo and location so the right team can act.", "home.report": "Report a problem", "home.track": "Track a complaint", "home.issues": "What can you report?", "home.how": "How it works", "home.step1": "Tell us", "home.step1Copy": "Describe the problem in simple words.", "home.step2": "Show us", "home.step2Copy": "Add a photo and share where it is.", "home.step3": "Track it", "home.step3Copy": "Follow the case and service updates.", "home.footer": "CivicFix is an independent civic-technology prototype.",
     "auth.citizen": "Citizen", "auth.admin": "Admin / Official", "auth.mobile": "Mobile number", "auth.name": "Your name", "auth.email": "Email", "auth.sendOtp": "Send OTP", "auth.otp": "6-digit OTP", "auth.verify": "Continue", "auth.change": "Change number", "auth.resend": "Resend OTP", "auth.firstTime": "Required for first-time citizens", "auth.optional": "Optional", "auth.codeSent": "OTP sent to your mobile number.", "auth.noPassword": "No password to remember.", "auth.adminTitle": "Official login", "auth.adminEmail": "Email", "auth.password": "Password", "auth.adminButton": "Open admin console", "auth.demo": "Demo OTP mode is active for local testing.",
-    "report.kicker": "Citizen report", "report.title": "Tell us what needs fixing.", "report.subtitle": "You do not need to know any technical terms. Just describe what you see.", "report.describe": "1. Describe", "report.problem": "What is the problem?", "report.placeholder": "Example: The drain near my building is blocked and water is overflowing onto the road.", "report.voice": "Speak your complaint", "report.stopVoice": "Stop listening", "report.voiceHelp": "Tap the microphone and speak in your selected language.", "report.photo": "2. Add a photo", "report.photoHelp": "The photo must show the civic problem. Personal photos, documents, syllabus pages and diagrams are not accepted.", "report.choosePhoto": "Choose a clear photo", "report.location": "3. Share location", "report.locationHelp": "Your location is required so the case can be mapped and routed.", "report.useLocation": "Use my location", "report.refreshLocation": "Refresh location", "report.locationCaptured": "Location captured", "report.submit": "Submit civic report", "report.checking": "Checking your report…", "report.before": "Before you submit", "report.clear": "Mention the place, what is wrong and how people are affected.", "report.checks": "What CivicFix checks", "report.issueType": "Issue type", "report.locationEvidence": "Location", "report.related": "Related reports", "report.priority": "Priority", "report.invalidImage": "Please upload a clear photo of the civic issue.", "report.voiceUnsupported": "Voice input is not available in this browser. You can type the complaint instead.", "report.locationRequired": "Location is required before this report can be submitted.",
+    "report.kicker": "Citizen report", "report.title": "Tell us what needs fixing.", "report.subtitle": "You do not need to know any technical terms. Just describe what you see.", "report.describe": "1. Describe", "report.problem": "What is the problem?", "report.placeholder": "Example: The drain near my building is blocked and water is overflowing onto the road.", "report.voice": "Speak your complaint", "report.stopVoice": "Stop listening", "report.voiceHelp": "Tap the microphone and speak in your selected language.", "report.photo": "2. Add a photo", "report.photoHelp": "The photo must show the civic problem. Personal photos, documents, syllabus pages and diagrams are not accepted.", "report.choosePhoto": "Choose a clear photo", "report.location": "3. Share location", "report.locationHelp": "Your location is required so the case can be mapped and routed.", "report.useLocation": "Use my location", "report.refreshLocation": "Refresh location", "report.locationCaptured": "Location captured", "report.submit": "Submit civic report", "report.checking": "Checking your report…", "report.before": "Before you submit", "report.clear": "Mention the place, what is wrong and how people are affected.", "report.checks": "What CivicFix checks", "report.issueType": "Issue type", "report.locationEvidence": "Location", "report.related": "Related reports", "report.priority": "Priority", "report.invalidImage": "Please upload a clear photo of the civic issue.", "report.voiceUnsupported": "Voice input is not available in this browser. You can type the complaint instead.", "report.locationRequired": "Location is required before this report can be submitted.", "report.livePhoto": "Take live photo", "report.capturePhoto": "Capture & use photo", "report.cancelCamera": "Cancel camera", "report.livePhotoLocation": "Live photo location",
     "result.title": "Your complaint has been registered.", "result.keep": "Keep this complaint ID to track your case.", "result.issueType": "Issue type", "result.case": "Civic case", "result.service": "Service clock", "result.priority": "Priority explained", "result.history": "Historical reference", "result.next": "What happens next", "result.view": "My complaints", "result.another": "Report another problem",
     "complaints.title": "My complaints", "complaints.subtitle": "See every complaint you have reported and its current status.", "complaints.another": "Report another problem", "complaints.total": "Total reports", "complaints.active": "Active", "complaints.resolved": "Resolved", "complaints.search": "Search complaint ID, problem or place…", "complaints.all": "All", "complaints.activeTab": "Active", "complaints.resolvedTab": "Resolved", "complaints.loading": "Loading your complaints…", "complaints.none": "No complaints found", "complaints.first": "Report your first civic problem", "complaints.open": "Open case",
     "track.title": "Follow your complaint.", "track.subtitle": "Enter your complaint ID to see the latest case and service information.", "track.search": "Example: CF-AB12CD34", "track.open": "Open complaint", "track.my": "My complaints", "track.submitted": "Submitted", "track.case": "Case", "track.evidence": "Your evidence", "track.verified": "Evidence verified by operations", "track.service": "Service clock", "track.target": "Target resolution window", "track.priority": "Priority", "track.next": "Next step", "track.back": "Back to my complaints",
@@ -379,6 +379,10 @@ const EXTRA: Record<string, Dictionary> = {
     "result.complaintId": "Complaint ID",
     "result.photoAlt": "Submitted civic evidence",
     "result.confidence": "confidence",
+    "result.inputLanguage": "Input language",
+    "result.detected": "detected",
+    "result.aiLanguage": "Language processing",
+    "result.aiLanguageCopy": "CivicFix understood the complaint in the citizen's language and mapped its civic meaning to the issue categories.",
     "result.relatedCase": "Linked to a related case",
     "result.newCase": "New civic case",
     "result.location": "Location",
@@ -492,4 +496,74 @@ for (const language of Object.keys(CORE_TRANSLATIONS) as LanguageCode[]) {
     ...EXTRA.en,
     ...(CORE_TRANSLATIONS[language] ?? {}),
   } as Dictionary;
+}
+
+const AI_LANGUAGE_LABELS: Partial<Record<LanguageCode, Pick<Dictionary, "result.inputLanguage" | "result.detected" | "result.aiLanguage" | "result.aiLanguageCopy">>> = {
+  mr: {
+    "result.inputLanguage": "इनपुट भाषा", "result.detected": "ओळखली", "result.aiLanguage": "भाषा प्रक्रिया",
+    "result.aiLanguageCopy": "CivicFix ने तुमची तक्रार तुमच्या भाषेत समजून तिचा नागरी अर्थ समस्येच्या प्रकाराशी जोडला.",
+  },
+  hi: {
+    "result.inputLanguage": "इनपुट भाषा", "result.detected": "पहचानी गई", "result.aiLanguage": "भाषा प्रसंस्करण",
+    "result.aiLanguageCopy": "CivicFix ने शिकायत को नागरिक की भाषा में समझकर उसके अर्थ को समस्या की श्रेणी से जोड़ा।",
+  },
+  gu: {
+    "result.inputLanguage": "ઇનપુટ ભાષા", "result.detected": "ઓળખાઈ", "result.aiLanguage": "ભાષા પ્રક્રિયા",
+    "result.aiLanguageCopy": "CivicFix એ તમારી ભાષામાં ફરિયાદ સમજી અને તેનો નાગરિક અર્થ સમસ્યાની શ્રેણી સાથે જોડ્યો.",
+  },
+  bn: {
+    "result.inputLanguage": "ইনপুট ভাষা", "result.detected": "শনাক্ত", "result.aiLanguage": "ভাষা প্রক্রিয়াকরণ",
+    "result.aiLanguageCopy": "CivicFix অভিযোগটি নাগরিকের ভাষায় বুঝে তার নাগরিক অর্থ সমস্যার শ্রেণির সঙ্গে মিলিয়েছে।",
+  },
+  ta: {
+    "result.inputLanguage": "உள்ளீட்டு மொழி", "result.detected": "கண்டறியப்பட்டது", "result.aiLanguage": "மொழி செயலாக்கம்",
+    "result.aiLanguageCopy": "CivicFix உங்கள் மொழியில் புகாரைப் புரிந்து அதன் குடிமக்கள் அர்த்தத்தை பிரச்சினை வகையுடன் இணைத்தது.",
+  },
+  te: {
+    "result.inputLanguage": "ఇన్‌పుట్ భాష", "result.detected": "గుర్తించబడింది", "result.aiLanguage": "భాష ప్రాసెసింగ్",
+    "result.aiLanguageCopy": "CivicFix మీ భాషలో ఫిర్యాదును అర్థం చేసుకుని దాని పౌర అర్థాన్ని సమస్య వర్గంతో అనుసంధానించింది.",
+  },
+  kn: {
+    "result.inputLanguage": "ಇನ್‌ಪುಟ್ ಭಾಷೆ", "result.detected": "ಪತ್ತೆಯಾಗಿದೆ", "result.aiLanguage": "ಭಾಷಾ ಪ್ರಕ್ರಿಯೆ",
+    "result.aiLanguageCopy": "CivicFix ನಿಮ್ಮ ಭಾಷೆಯಲ್ಲಿನ ದೂರನ್ನು ಅರ್ಥಮಾಡಿಕೊಂಡು ಅದರ ನಾಗರಿಕ ಅರ್ಥವನ್ನು ಸಮಸ್ಯೆಯ ವರ್ಗಕ್ಕೆ ಜೋಡಿಸಿದೆ.",
+  },
+  ml: {
+    "result.inputLanguage": "ഇൻപുട്ട് ഭാഷ", "result.detected": "കണ്ടെത്തി", "result.aiLanguage": "ഭാഷാ പ്രോസസ്സിംഗ്",
+    "result.aiLanguageCopy": "CivicFix നിങ്ങളുടെ ഭാഷയിലെ പരാതി മനസ്സിലാക്കി അതിന്റെ പൗര അർത്ഥം പ്രശ്ന വിഭാഗവുമായി ബന്ധിപ്പിച്ചു.",
+  },
+  or: {
+    "result.inputLanguage": "ଇନପୁଟ ଭାଷା", "result.detected": "ଚିହ୍ନଟ", "result.aiLanguage": "ଭାଷା ପ୍ରକ୍ରିୟା",
+    "result.aiLanguageCopy": "CivicFix ଆପଣଙ୍କ ଭାଷାରେ ଅଭିଯୋଗ ବୁଝି ତାହାର ନାଗରିକ ଅର୍ଥକୁ ସମସ୍ୟା ଶ୍ରେଣୀ ସହିତ ମେଳ କରିଛି।",
+  },
+  pa: {
+    "result.inputLanguage": "ਇਨਪੁੱਟ ਭਾਸ਼ਾ", "result.detected": "ਪਛਾਣੀ ਗਈ", "result.aiLanguage": "ਭਾਸ਼ਾ ਪ੍ਰੋਸੈਸਿੰਗ",
+    "result.aiLanguageCopy": "CivicFix ਨੇ ਤੁਹਾਡੀ ਭਾਸ਼ਾ ਵਿੱਚ ਸ਼ਿਕਾਇਤ ਸਮਝ ਕੇ ਉਸਦਾ ਨਾਗਰਿਕ ਅਰਥ ਸਮੱਸਿਆ ਦੀ ਸ਼੍ਰੇਣੀ ਨਾਲ ਜੋੜਿਆ।",
+  },
+  ur: {
+    "result.inputLanguage": "ان پٹ زبان", "result.detected": "شناخت ہوئی", "result.aiLanguage": "زبان کی پروسیسنگ",
+    "result.aiLanguageCopy": "CivicFix نے آپ کی زبان میں شکایت سمجھ کر اس کے شہری مفہوم کو مسئلے کی قسم سے جوڑا۔",
+  },
+};
+
+for (const language of Object.keys(AI_LANGUAGE_LABELS) as LanguageCode[]) {
+  T[language] = { ...T[language], ...AI_LANGUAGE_LABELS[language] } as Dictionary;
+}
+
+
+const LIVE_PHOTO_TRANSLATIONS: Partial<Record<LanguageCode, Pick<Dictionary, "report.livePhoto" | "report.capturePhoto" | "report.cancelCamera" | "report.livePhotoLocation">>> = {
+  mr: { "report.livePhoto": "थेट फोटो घ्या", "report.capturePhoto": "फोटो घ्या व वापरा", "report.cancelCamera": "कॅमेरा रद्द करा", "report.livePhotoLocation": "थेट फोटोचे स्थान" },
+  hi: { "report.livePhoto": "लाइव फोटो लें", "report.capturePhoto": "फोटो लें और उपयोग करें", "report.cancelCamera": "कैमरा रद्द करें", "report.livePhotoLocation": "लाइव फोटो का स्थान" },
+  gu: { "report.livePhoto": "લાઇવ ફોટો લો", "report.capturePhoto": "ફોટો લો અને ઉપયોગ કરો", "report.cancelCamera": "કેમેરા રદ કરો", "report.livePhotoLocation": "લાઇવ ફોટોનું સ્થાન" },
+  bn: { "report.livePhoto": "লাইভ ছবি তুলুন", "report.capturePhoto": "ছবি তুলে ব্যবহার করুন", "report.cancelCamera": "ক্যামেরা বাতিল করুন", "report.livePhotoLocation": "লাইভ ছবির অবস্থান" },
+  ta: { "report.livePhoto": "நேரடி புகைப்படம் எடுக்கவும்", "report.capturePhoto": "புகைப்படம் எடுத்து பயன்படுத்தவும்", "report.cancelCamera": "கேமராவை ரத்து செய்யவும்", "report.livePhotoLocation": "நேரடி புகைப்பட இடம்" },
+  te: { "report.livePhoto": "లైవ్ ఫోటో తీయండి", "report.capturePhoto": "ఫోటో తీసి ఉపయోగించండి", "report.cancelCamera": "కెమెరాను రద్దు చేయండి", "report.livePhotoLocation": "లైవ్ ఫోటో స్థానం" },
+  kn: { "report.livePhoto": "ಲೈವ್ ಫೋಟೋ ತೆಗೆದುಕೊಳ್ಳಿ", "report.capturePhoto": "ಫೋಟೋ ತೆಗೆದು ಬಳಸಿ", "report.cancelCamera": "ಕ್ಯಾಮೆರಾ ರದ್ದುಮಾಡಿ", "report.livePhotoLocation": "ಲೈವ್ ಫೋಟೋ ಸ್ಥಳ" },
+  ml: { "report.livePhoto": "ലൈവ് ഫോട്ടോ എടുക്കുക", "report.capturePhoto": "ഫോട്ടോ എടുത്ത് ഉപയോഗിക്കുക", "report.cancelCamera": "ക്യാമറ റദ്ദാക്കുക", "report.livePhotoLocation": "ലൈവ് ഫോട്ടോയുടെ സ്ഥലം" },
+  or: { "report.livePhoto": "ଲାଇଭ୍ ଫଟୋ ନିଅନ୍ତୁ", "report.capturePhoto": "ଫଟୋ ନେଇ ବ୍ୟବହାର କରନ୍ତୁ", "report.cancelCamera": "କ୍ୟାମେରା ବାତିଲ୍ କରନ୍ତୁ", "report.livePhotoLocation": "ଲାଇଭ୍ ଫଟୋ ସ୍ଥାନ" },
+  pa: { "report.livePhoto": "ਲਾਈਵ ਫੋਟੋ ਲਓ", "report.capturePhoto": "ਫੋਟੋ ਲੈ ਕੇ ਵਰਤੋ", "report.cancelCamera": "ਕੈਮਰਾ ਰੱਦ ਕਰੋ", "report.livePhotoLocation": "ਲਾਈਵ ਫੋਟੋ ਸਥਾਨ" },
+  ur: { "report.livePhoto": "لائیو تصویر لیں", "report.capturePhoto": "تصویر لے کر استعمال کریں", "report.cancelCamera": "کیمرہ منسوخ کریں", "report.livePhotoLocation": "لائیو تصویر کی جگہ" },
+};
+
+for (const language of Object.keys(LIVE_PHOTO_TRANSLATIONS) as LanguageCode[]) {
+  T[language] = { ...T[language], ...LIVE_PHOTO_TRANSLATIONS[language] } as Dictionary;
 }

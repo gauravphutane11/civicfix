@@ -25,7 +25,7 @@ export default function AuthPage({
   const location = useLocation();
 
   const [portal, setPortal] = useState<
-    "citizen" | "admin"
+    "citizen" | "admin" | "field_officer"
   >("citizen");
 
   const [citizenStep, setCitizenStep] =
@@ -49,6 +49,11 @@ export default function AuthPage({
   const [adminEmail, setAdminEmail] =
     useState("");
   const [adminPassword, setAdminPassword] =
+    useState("");
+
+  const [fieldOfficerEmail, setFieldOfficerEmail] =
+    useState("");
+  const [fieldOfficerPassword, setFieldOfficerPassword] =
     useState("");
 
   const [error, setError] =
@@ -206,6 +211,21 @@ export default function AuthPage({
     }
   };
 
+  const fieldOfficerSubmit = async (event: FormEvent) => {
+    event.preventDefault();
+    setError("");
+    setInfo("");
+    setBusy(true);
+    try {
+      const user = await login(fieldOfficerEmail, fieldOfficerPassword);
+      navigate(user.role === "field_officer" ? "/field-officer" : destination(), { replace: true });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to sign in");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const adminSubmit = async (
     event: FormEvent,
   ) => {
@@ -224,6 +244,8 @@ export default function AuthPage({
       navigate(
         user.role === "admin"
           ? "/admin"
+          : user.role === "field_officer"
+          ? "/field-officer"
           : destination(),
         { replace: true },
       );
@@ -338,6 +360,18 @@ export default function AuthPage({
                 }}
               >
                 {t("auth.admin")}
+              </button>
+
+              <button
+                type="button"
+                className={portal === "field_officer" ? "active" : ""}
+                onClick={() => {
+                  setPortal("field_officer");
+                  setError("");
+                  setInfo("");
+                }}
+              >
+                Service Officer
               </button>
             </div>
 
@@ -603,7 +637,7 @@ export default function AuthPage({
                   </div>
                 </form>
               )
-            ) : (
+            ) : portal === "admin" ? (
               <form
                 onSubmit={adminSubmit}
               >
@@ -685,6 +719,21 @@ export default function AuthPage({
                 <div className="admin-demo-note">
                   {t("auth.adminNotice")}
                 </div>
+              </form>
+            ) : (
+              <form onSubmit={fieldOfficerSubmit}>
+                <div className="auth-card-heading">
+                  <div className="auth-number">S</div>
+                  <div><div className="section-kicker">Service Officer</div><h2>Ground Work Login</h2></div>
+                </div>
+                <p className="auth-note">For service-level officers who perform field work on assigned civic complaints.</p>
+                <label className="field-label">Officer email</label>
+                <input className="input-ui" type="email" value={fieldOfficerEmail} onChange={e=>setFieldOfficerEmail(e.target.value)} placeholder="officer@civicfix.local" autoFocus />
+                <label className="field-label mt-5">Password</label>
+                <input className="input-ui" type="password" value={fieldOfficerPassword} onChange={e=>setFieldOfficerPassword(e.target.value)} placeholder="Enter officer password" />
+                {error && <div className="auth-error">{error}</div>}
+                <button type="submit" disabled={busy} className="citizen-primary-btn w-full mt-6">{busy ? "Signing in…" : "Service Officer Login"}</button>
+                <div className="admin-demo-note">Demo field accounts are included for local testing.</div>
               </form>
             )}
           </div>

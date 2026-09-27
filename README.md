@@ -1,42 +1,110 @@
 # CivicFix — AI Citizen Grievance Triage, Deduplication & Accountability
 
-CivicFix is a hackathon-grade prototype for **PS-18** of the Global SDG + AI Hackathon 2026. It turns fragmented civic complaints into deduplicated, explainable and SLA-trackable municipal work items.
+CivicFix is a hackathon-grade civic service prototype for PS-18. It turns citizen reports into structured municipal work items and closes the loop with automatic service-category routing, field-worker evidence, citizen verification and an auditable admin workflow.
 
-## Product flow
+## End-to-end flow
 
-Citizen report → AI classification → location extraction → duplicate detection → civic issue cluster → explainable priority → SLA → admin action → resolution.
+Citizen OTP → multilingual text/voice complaint → live camera photo + GPS → civic classification → location intelligence → image relevance → duplicate detection → civic issue cluster → explainable priority → SLA → automatic category-aware worker routing → field worker work → live geotagged completion photo → optional citizen live after-work photo → evidence consistency check → admin confirmation/rejection → citizen rating/review.
 
-## AI modules
+## Technology stack
 
-1. **Complaint classification:** TF-IDF + Multinomial Naive Bayes over a compact hand-labelled corpus.
-2. **Location extraction:** regex phrase extraction + fuzzy alias matching against a curated Pune-style gazetteer.
-3. **Duplicate detection:** domain synonym normalization + TF-IDF cosine similarity + spatial proximity weighting.
-4. **Explainable priority:** transparent 100-point additive model using severity, recurrence, location importance, age and public impact.
-5. **Image evidence:** deterministic Pillow-based brightness/edge/colour statistics. This is explicitly heuristic support, not a trained CNN.
+### Frontend
 
-## Repository
+- React 18.3.1 — citizen, admin and field-worker interfaces.
+- TypeScript 5.7.2 — typed UI/API contracts.
+- Vite 6.0.5 — development server and bundling.
+- Tailwind CSS 3.4.17 + custom CSS — public-service UI and operations console.
+- React Router 6.28.0 — route protection and navigation.
+- Leaflet 1.9.4 + React-Leaflet 4.2.1 — admin/field spatial views.
+- OpenStreetMap — map tiles without a Google Maps API key.
 
-- `backend/` — FastAPI, SQLAlchemy, SQLite, AI pipeline, REST API, seed data.
-- `frontend/` — React/Vite/TypeScript, Tailwind, Leaflet map, citizen + admin workflows.
+### Backend
+
+- FastAPI 0.115.6 — REST API and workflow orchestration.
+- SQLAlchemy 2.0.36 — relational data access.
+- SQLite — local development database.
+- PostgreSQL — deployment database through `DATABASE_URL`.
+- Pydantic 2.10.3 — request/response validation.
+
+### AI / computer vision
+
+- Scikit-learn 1.5.2 — TF-IDF and Multinomial Naive Bayes models.
+- Multilingual character n-gram model — native-script civic classification for validated supported Indian languages.
+- Civic vocabulary + script/language detection — multilingual canonicalization without requiring citizen translation.
+- TF-IDF cosine similarity + 250 m spatial gate — duplicate grouping.
+- Explainable additive priority engine — severity, recurrence, location importance, age and public impact.
+- Pillow + OpenCV — image validation, civic-relevance heuristics and completion-photo consistency.
+- Haversine distance — geospatial evidence matching and proximity checks.
+
+Voice capture uses browser SpeechRecognition / webkitSpeechRecognition. The browser performs speech-to-text; CivicFix's backend then processes the resulting text.
+
+## Multilingual AI
+
+The citizen UI offers 23 Indian-language choices. Backend complaint classification has strongest validated native-language coverage for English, Hindi, Marathi, Gujarati, Bengali, Tamil, Telugu, Kannada, Malayalam, Odia, Punjabi and Urdu.
+
+Example:
+
+`आमच्या रस्त्यावर खूप मोठा खड्डा आहे`
+
+→ Marathi detection
+→ native-script civic features
+→ `pothole`
+→ confidence + supporting terms
+
+The original citizen text is preserved. CivicFix does not require the citizen to translate the complaint into English.
+
+## Automatic worker network
+
+CivicFix provisions exactly **12 field-worker accounts: two workers for each of six AI-routable categories**.
+
+| AI category | Department |
+|---|---|
+| `pothole` | Pothole Response |
+| `garbage` | Garbage & Waste |
+| `streetlight` | Streetlight Maintenance |
+| `drainage` | Drainage Response |
+| `road_infrastructure` | Road Infrastructure |
+| `water_supply` | Water Supply |
+
+After AI classification, the router checks only the matching category. It prefers an available worker, then the lowest active workload, and enforces the configurable capacity limit (`MAX_ACTIVE_CASES_PER_WORKER`, default 3). When both workers are at capacity, the issue remains `OPEN` and enters that category queue. When capacity is released, the queue is automatically filled.
+
+## Live-camera-only evidence
+
+All civic evidence photos are captured from the live camera. The frontend uses `navigator.mediaDevices.getUserMedia()` through the reusable `LivePhotoCapture` component. There is no gallery/file-picker path.
+
+The backend also requires `capture_mode=live_camera`, so manually submitted gallery/file evidence is rejected by the evidence endpoints.
+
+Evidence paths:
+
+- Citizen complaint: live camera + GPS.
+- Field-worker completion: live camera + GPS.
+- Citizen after-work confirmation: optional live camera + GPS.
+
+## Resolution evidence
+
+CivicFix stores the field-worker completion evidence and the optional citizen after-work evidence as separate records. When both exist, the system compares:
+
+- visual similarity using lightweight OpenCV signals
+- location distance between captures
+- combined verification score
+
+A sufficiently consistent pair becomes `verified` and can move the issue to `RESOLVED`; ambiguous evidence becomes `needs_review`. Admins can explicitly confirm or reject the evidence pair. The matcher is a decision-support signal, not forensic proof.
+
+## Citizen feedback
+
+After a case is resolved, the citizen may optionally submit a 1–5 star rating and written review. This is kept separate from evidence verification so satisfaction is not used as a proxy for proof of physical completion.
 
 ## Local setup
 
-### 1. Backend
+Run the backend from the project root so package-relative imports work correctly:
 
 ```bash
-cd backend
 python -m venv .venv
 # Windows PowerShell
-.venv\Scripts\Activate.ps1
-# macOS/Linux
-# source .venv/bin/activate
-pip install -r requirements.txt
-uvicorn main:app --reload --port 8000
+.venv\\Scripts\\Activate.ps1
+pip install -r backend/requirements.txt
+python -m uvicorn backend.main:app --reload --port 8000
 ```
-
-The API exposes Swagger at `http://127.0.0.1:8000/docs`.
-
-### 2. Frontend
 
 Open a second terminal:
 
@@ -46,61 +114,34 @@ npm install
 npm run dev
 ```
 
-Open `http://localhost:5173`.
+Frontend: `http://localhost:5173`
+Backend: `http://127.0.0.1:8000`
+Swagger: `http://127.0.0.1:8000/docs`
 
-The Vite proxy forwards `/api/*` to the FastAPI server and `/uploads/*` to FastAPI.
+## Routes
 
-## Main routes
-
-- `/` — public CivicFix landing / explanation
-- `/report` — citizen complaint intake + AI triage receipt
-- `/track` — complaint tracking
+- `/` — citizen landing page
+- `/login` — citizen OTP / admin email-password / service-worker email-password portal
+- `/report` — citizen complaint intake
+- `/complaints` — citizen complaint history, optional after-work evidence and feedback
+- `/track` — public complaint tracking
 - `/admin` — municipal operations console
+- `/field-officer` — category-specific field-service work queue
 
-## Flagship demo scenario
+## Credentials
 
-The backend seeds a real AI-driven Gate 2 duplicate cluster:
+`CIVICFIX_LOGIN_CREDENTIALS.txt` contains the complete hackathon/demo credentials for 5 admin accounts and 12 workers. It is intentionally ignored by Git. Rotate all passwords and remove demo credentials before real production use.
 
-- `Large pothole near Gate 2...`
-- `Dangerous road hole outside Gate 2...`
-- `Huge pothole at the college main entrance...`
+## Data and responsible AI
 
-These are processed by the actual pipeline and become one civic issue where similarity crosses the configured threshold.
+The project uses curated/synthetic campus-style demo data plus a processed historical NYC 311 reference file. The historical data is contextual reference data, not a live municipal feed.
 
-## Environment
+Duplicate detection, image relevance and completion-image matching are probabilistic/heuristic decision-support signals. Human review remains part of the workflow.
 
-Copy `.env.example` to `.env` if you want custom settings. SQLite is the default local database.
+## Deployment
 
-## Responsible AI notes
+Backend: Render + PostgreSQL.
+Frontend: Vercel.
+Persistent image storage requires a persistent disk/object store in production because local Render filesystem storage is ephemeral.
 
-- The system is a decision-support prototype, not an autonomous municipal decision-maker.
-- Duplicate detection is probabilistic and should be reviewed by staff.
-- Location data can be unresolved; the UI surfaces that uncertainty.
-- Priority factors are transparent and editable in code.
-- Image analysis is intentionally labelled as heuristic supporting evidence rather than object detection.
-- The project does not silently reject citizen reports.
-
-## Data
-
-The demo uses synthetic/curated campus-style data and public-map tiles. Replace the seed/gazetteer with verified municipal datasets before real-world deployment.
-
-## Validation performed in this handoff
-
-- Python backend syntax compiled successfully.
-- Classifier, location extractor and priority engine were executed directly.
-- Demo database seed executed successfully.
-- Seeded flagship Gate 2 pothole cluster produced one civic issue with 3 reports.
-- Related Gate 2 drainage reports were also consolidated into one issue after tightening location extraction.
-- FastAPI `/health`, `/dashboard/metrics`, `/dashboard/map`, and complaint submission were exercised with a local TestClient.
-- Frontend dependency installation was attempted, but package download timed out in this sandbox. Run `npm install` on a machine with network access before `npm run dev`.
-
-## Authentication
-
-Citizen reports now require a registered account and are linked to the authenticated citizen. The API uses signed JWT access tokens and salted PBKDF2 password hashes.
-
-For the local prototype, a demo operations account is created automatically:
-
-- Email: `admin@civicfix.local`
-- Password: `Admin@12345`
-
-Replace `AUTH_SECRET` in `.env` with a long random value before any non-local deployment.
+See `DEPLOYMENT.md` and `FIELD_OFFICER_SETUP.md` for deployment and worker routing details.

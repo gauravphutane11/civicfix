@@ -4,6 +4,8 @@ from pathlib import Path
 from sqlalchemy.orm import Session
 
 from .. import models, sla_utils
+from ..department_mapping import department_for_category
+from ..worker_routing import assign_issue_to_worker
 from .classifier import classifier
 from .duplicate import find_duplicates
 from .location import extract_location
@@ -73,8 +75,18 @@ def _ai_explanation(
     issue: models.CivicIssue,
     duplicate_info: dict,
     priority,
+    language_name: str | None = None,
+    language_confidence: float | None = None,
 ) -> str:
     parts = []
+
+    input_language = language_name
+    input_language_confidence = language_confidence
+    if input_language:
+        lang_pct = round(float(input_language_confidence or 0) * 100)
+        parts.append(
+            f"The complaint was detected as {input_language} and analyzed in its original language ({lang_pct}% language confidence)."
+        )
 
     category_confidence = round(
         float(complaint.category_confidence or 0) * 100
@@ -131,11 +143,11 @@ def _ai_explanation(
     return " ".join(parts)
 
 
-def run_triage(db: Session, complaint: models.Complaint) -> dict:
+def run_triage(db: Session, complaint: models.Complaint, language_hint: str | None = None) -> dict:
     # -----------------------------------------------------
     # 1. CLASSIFY
     # -----------------------------------------------------
-    result = classifier.classify(complaint.raw_text)
+    result = classifier.classify(complaint.raw_text, language_hint=language_hint)
     complaint.category = result.category
     complaint.category_confidence = result.confidence
     complaint.category_terms = result.key_terms
@@ -204,7 +216,7 @@ def run_triage(db: Session, complaint: models.Complaint) -> dict:
     ]
 
     duplicate_result = find_duplicates(
-        complaint.raw_text,
+        result.normalized_text,
         complaint.category,
         complaint.latitude,
         complaint.longitude,
@@ -231,6 +243,7 @@ def run_triage(db: Session, complaint: models.Complaint) -> dict:
 
         complaint.civic_issue_id = issue.id
         complaint.status = models.ComplaintStatus.MERGED.value
+        issue.department = department_for_category(issue.category)
         issue.complaint_count = (issue.complaint_count or 1) + 1
 
         db.add(
@@ -271,6 +284,7 @@ def run_triage(db: Session, complaint: models.Complaint) -> dict:
             longitude=complaint.longitude,
             complaint_count=1,
             status=models.IssueStatus.OPEN.value,
+            department=department_for_category(complaint.category),
         )
         db.add(issue)
         db.flush()
@@ -329,7 +343,12 @@ def run_triage(db: Session, complaint: models.Complaint) -> dict:
     db.flush()
 
     # -----------------------------------------------------
-    # 6. HISTORICAL CONTEXT + AI EXPLANATION
+    # 6. AUTOMATED SERVICE-WORKER ROUTING
+    # -----------------------------------------------------
+    worker, assignment_reason = assign_issue_to_worker(db, issue)
+
+    # -----------------------------------------------------
+    # 7. HISTORICAL CONTEXT + AI EXPLANATION
     # -----------------------------------------------------
     historical_context = _historical_context(complaint.category)
     ai_explanation = _ai_explanation(
@@ -337,14 +356,23 @@ def run_triage(db: Session, complaint: models.Complaint) -> dict:
         issue,
         duplicate_info,
         priority,
+        language_name=result.language_name,
+        language_confidence=result.language_confidence,
     )
 
     return {
         "issue": issue,
+        "assigned_worker": worker,
+        "assignment_reason": assignment_reason,
         "duplicate_info": duplicate_info,
         "location_matched": location_matched,
         "sla_record": sla_record,
         "priority": priority,
         "historical_context": historical_context,
         "ai_explanation": ai_explanation,
+        "input_language": result.language_code,
+        "input_language_name": result.language_name,
+        "language_confidence": result.language_confidence,
+        "normalized_text": result.normalized_text,
+        "classification_method": result.classification_method,
     }

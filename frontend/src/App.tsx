@@ -5,6 +5,7 @@ import TrackComplaint from "./pages/TrackComplaint";
 import MyComplaints from "./pages/MyComplaints";
 import AdminConsole from "./pages/AdminConsole";
 import AuthPage from "./pages/AuthPage";
+import FieldOfficerDashboard from "./pages/FieldOfficerDashboard";
 import ProtectedRoute from "./components/common/ProtectedRoute";
 
 export default function App() {
@@ -16,12 +17,16 @@ export default function App() {
     <Route element={<ProtectedRoute role="citizen" />}>
       <Route path="/report" element={<ReportIssue />} />
       <Route path="/complaints" element={<MyComplaints />} />
-      <Route path="/track" element={<MyComplaints />} />
+      <Route path="/track" element={<TrackComplaint />} />
       <Route path="/track/:code" element={<TrackComplaint />} />
     </Route>
 
     <Route element={<ProtectedRoute role="admin" />}>
       <Route path="/admin" element={<AdminConsole />} />
+    </Route>
+
+    <Route element={<ProtectedRoute role="field_officer" />}>
+      <Route path="/field-officer" element={<FieldOfficerDashboard />} />
     </Route>
   </Routes>;
 }

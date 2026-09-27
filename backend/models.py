@@ -1,8 +1,20 @@
 import enum
 import uuid
 from datetime import datetime, timezone
-from sqlalchemy import Column, String, Float, Integer, DateTime, ForeignKey, Text, Boolean, JSON
+
+from sqlalchemy import (
+    Boolean,
+    Column,
+    DateTime,
+    Float,
+    ForeignKey,
+    Integer,
+    JSON,
+    String,
+    Text,
+)
 from sqlalchemy.orm import relationship
+
 from .database import Base
 
 
@@ -34,6 +46,11 @@ class ComplaintStatus(str, enum.Enum):
     SUBMITTED = "submitted"
     TRIAGED = "triaged"
     MERGED = "merged"
+    OPEN = "open"
+    ASSIGNED = "assigned"
+    IN_PROGRESS = "in_progress"
+    RESOLVED = "resolved"
+    REJECTED = "rejected"
 
 
 class IssueStatus(str, enum.Enum):
@@ -41,6 +58,14 @@ class IssueStatus(str, enum.Enum):
     ASSIGNED = "assigned"
     IN_PROGRESS = "in_progress"
     RESOLVED = "resolved"
+    REJECTED = "rejected"
+
+
+class CompletionEvidenceStatus(str, enum.Enum):
+    PENDING_WORKER_EVIDENCE = "pending_worker_evidence"
+    VERIFIED = "verified"
+    ADMIN_CONFIRMED = "admin_confirmed"
+    NEEDS_REVIEW = "needs_review"
     REJECTED = "rejected"
 
 
@@ -65,8 +90,14 @@ class User(Base):
     otp_provider = Column(String, nullable=True)
     role = Column(String, default=Role.CITIZEN.value, nullable=False)
     department = Column(String, nullable=True)
+    service_category = Column(String, nullable=True)
+    availability_status = Column(String, default="available", nullable=False)
+    is_active = Column(Boolean, default=True, nullable=False)
+    last_auto_assigned_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=_now)
     complaints = relationship("Complaint", back_populates="citizen")
+    field_work_evidence = relationship("FieldWorkEvidence", back_populates="officer")
+    completion_evidence = relationship("CitizenCompletionEvidence", back_populates="citizen")
 
 
 class Location(Base):
@@ -99,15 +130,42 @@ class CivicIssue(Base):
     status = Column(String, default=IssueStatus.OPEN.value)
     assigned_to = Column(String, nullable=True)
     department = Column(String, nullable=True)
+    assigned_at = Column(DateTime, nullable=True)
+    assignment_source = Column(String, nullable=True)
+    assignment_note = Column(Text, nullable=True)
     complaint_count = Column(Integer, default=1)
     created_at = Column(DateTime, default=_now)
     updated_at = Column(DateTime, default=_now, onupdate=_now)
     resolved_at = Column(DateTime, nullable=True)
     location = relationship("Location", back_populates="civic_issues")
     complaints = relationship("Complaint", back_populates="civic_issue")
-    status_history = relationship("StatusHistory", back_populates="civic_issue", cascade="all, delete-orphan")
-    sla_record = relationship("SLARecord", back_populates="civic_issue", uselist=False, cascade="all, delete-orphan")
-    duplicate_links = relationship("DuplicateLink", back_populates="civic_issue", cascade="all, delete-orphan")
+    status_history = relationship(
+        "StatusHistory",
+        back_populates="civic_issue",
+        cascade="all, delete-orphan",
+    )
+    sla_record = relationship(
+        "SLARecord",
+        back_populates="civic_issue",
+        uselist=False,
+        cascade="all, delete-orphan",
+    )
+    duplicate_links = relationship(
+        "DuplicateLink",
+        back_populates="civic_issue",
+        cascade="all, delete-orphan",
+    )
+    work_reviews = relationship("WorkReview", back_populates="civic_issue")
+    field_work_evidence = relationship(
+        "FieldWorkEvidence",
+        back_populates="civic_issue",
+        cascade="all, delete-orphan",
+    )
+    completion_evidence = relationship(
+        "CitizenCompletionEvidence",
+        back_populates="civic_issue",
+        cascade="all, delete-orphan",
+    )
 
 
 class Complaint(Base):
@@ -132,7 +190,38 @@ class Complaint(Base):
     citizen = relationship("User", back_populates="complaints")
     location = relationship("Location", back_populates="complaints")
     civic_issue = relationship("CivicIssue", back_populates="complaints")
-    attachments = relationship("Attachment", back_populates="complaint", cascade="all, delete-orphan")
+    attachments = relationship(
+        "Attachment",
+        back_populates="complaint",
+        cascade="all, delete-orphan",
+    )
+    work_review = relationship(
+        "WorkReview",
+        back_populates="complaint",
+        uselist=False,
+        cascade="all, delete-orphan",
+    )
+    completion_evidence = relationship(
+        "CitizenCompletionEvidence",
+        back_populates="complaint",
+        cascade="all, delete-orphan",
+    )
+
+    @property
+    def citizen_name(self):
+        return self.citizen.name if self.citizen is not None else None
+
+    @property
+    def citizen_email(self):
+        return self.citizen.email if self.citizen is not None else None
+
+    @property
+    def citizen_phone(self):
+        return self.citizen.phone if self.citizen is not None else None
+
+    @property
+    def review(self):
+        return self.work_review
 
 
 class Attachment(Base):
@@ -141,12 +230,32 @@ class Attachment(Base):
     complaint_id = Column(Integer, ForeignKey("complaints.id"), nullable=False)
     file_path = Column(String, nullable=False)
     content_type = Column(String, nullable=True)
+    latitude = Column(Float, nullable=True)
+    longitude = Column(Float, nullable=True)
+    capture_mode = Column(String, nullable=True)
     uploaded_at = Column(DateTime, default=_now)
     ai_tags = Column(JSON, default=list)
     ai_confidence = Column(Float, nullable=True)
     ai_notes = Column(String, nullable=True)
     is_verified = Column(Boolean, default=False)
     complaint = relationship("Complaint", back_populates="attachments")
+
+
+class WorkReview(Base):
+    __tablename__ = "work_reviews"
+    id = Column(Integer, primary_key=True)
+    complaint_id = Column(Integer, ForeignKey("complaints.id"), unique=True, nullable=False)
+    civic_issue_id = Column(Integer, ForeignKey("civic_issues.id"), nullable=False)
+    citizen_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    officer_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    rating = Column(Integer, nullable=False)
+    review = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=_now)
+
+    complaint = relationship("Complaint", back_populates="work_review")
+    civic_issue = relationship("CivicIssue", back_populates="work_reviews")
+    citizen = relationship("User", foreign_keys=[citizen_id])
+    officer = relationship("User", foreign_keys=[officer_id])
 
 
 class DuplicateLink(Base):
@@ -182,3 +291,55 @@ class SLARecord(Base):
     resolved_at = Column(DateTime, nullable=True)
     state = Column(String, default="within_sla")
     civic_issue = relationship("CivicIssue", back_populates="sla_record")
+
+
+class FieldWorkEvidence(Base):
+    __tablename__ = "field_work_evidence"
+    id = Column(Integer, primary_key=True)
+    civic_issue_id = Column(Integer, ForeignKey("civic_issues.id"), nullable=False)
+    officer_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    file_path = Column(String, nullable=False)
+    content_type = Column(String, nullable=True)
+    capture_mode = Column(String, nullable=False, default="live_camera")
+    latitude = Column(Float, nullable=False)
+    longitude = Column(Float, nullable=False)
+    note = Column(String, nullable=True)
+    uploaded_at = Column(DateTime, default=_now)
+    civic_issue = relationship("CivicIssue", back_populates="field_work_evidence")
+    officer = relationship("User", back_populates="field_work_evidence")
+    completion_evidence = relationship("CitizenCompletionEvidence", back_populates="matched_field_evidence")
+
+
+class CitizenCompletionEvidence(Base):
+    __tablename__ = "citizen_completion_evidence"
+    id = Column(Integer, primary_key=True)
+    complaint_id = Column(Integer, ForeignKey("complaints.id"), nullable=False)
+    civic_issue_id = Column(Integer, ForeignKey("civic_issues.id"), nullable=False)
+    citizen_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    file_path = Column(String, nullable=False)
+    content_type = Column(String, nullable=True)
+    latitude = Column(Float, nullable=False)
+    longitude = Column(Float, nullable=False)
+    uploaded_at = Column(DateTime, default=_now)
+    capture_mode = Column(String, nullable=False, default="live_camera")
+    matched_field_evidence_id = Column(Integer, ForeignKey("field_work_evidence.id"), nullable=True)
+    visual_similarity = Column(Float, nullable=True)
+    location_distance_meters = Column(Float, nullable=True)
+    location_score = Column(Float, nullable=True)
+    verification_score = Column(Float, nullable=True)
+    verification_status = Column(
+        String,
+        default=CompletionEvidenceStatus.PENDING_WORKER_EVIDENCE.value,
+        nullable=False,
+    )
+    verification_note = Column(Text, nullable=True)
+    reviewed_by = Column(String, nullable=True)
+    reviewed_at = Column(DateTime, nullable=True)
+    complaint = relationship("Complaint", back_populates="completion_evidence")
+    civic_issue = relationship("CivicIssue", back_populates="completion_evidence")
+    citizen = relationship("User", back_populates="completion_evidence")
+    matched_field_evidence = relationship(
+        "FieldWorkEvidence",
+        back_populates="completion_evidence",
+        foreign_keys=[matched_field_evidence_id],
+    )

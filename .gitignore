@@ -50,3 +50,6 @@ dataset/socrata_metadata_*.json
 Thumbs.db
 .vscode/
 .idea/
+
+# Demo credentials (keep out of GitHub)
+CIVICFIX_LOGIN_CREDENTIALS.txt
